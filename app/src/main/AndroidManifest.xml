@@ -2,17 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-
-
+    <!-- CÁC QUYỀN CẦN THIẾT -->
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -22,6 +12,26 @@
         android:theme="@style/Theme.TroLyAo"
         tools:targetApi="34">
 
+        <service
+            android:name=".AssistantService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:foregroundServiceType="microphone"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_config" />
+
+        </service>
+
+        <!-- ĐOẠN QUAN TRỌNG NHẤT: KHAI BÁO SERVICE TRỢ NĂNG -->
+        <!-- Nếu code cũ có thẻ <service> nào khác thì XÓA đi, chỉ để lại cái này -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -31,15 +41,15 @@
             </intent-filter>
         </activity>
 
-        <service android:name=".AssistantService" android:foregroundServiceType="microphone" />
-
-        <activity
-            android:name=".LauncherActivity"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:exported="false"
-            android:excludeFromRecents="true" />
-
     </application>
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+
+    <uses-permission android:name="android.permission.VIBRATE" /> <!-- Quyền Rung -->
 
     <queries>
         <intent>
