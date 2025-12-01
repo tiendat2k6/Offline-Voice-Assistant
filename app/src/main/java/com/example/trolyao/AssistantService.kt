@@ -122,7 +122,7 @@ class AssistantService : AccessibilityService() {
                 Porcupine.BuiltInKeyword.TERMINATOR   // 1: Tắt màn hình
             )
 
-            val sensitivities = floatArrayOf(0.7f, 0.8f) // Terminator nhạy 0.8f
+            val sensitivities = floatArrayOf(0.8f, 0.9f) // Terminator nhạy 0.9f
 
             porcupineManager = PorcupineManager.Builder()
                 .setAccessKey(accessKey)
@@ -193,7 +193,7 @@ class AssistantService : AccessibilityService() {
 
     private val dismissTask = Runnable {
         val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
-        if (!keyguardManager.isKeyguardLocked) performGlobalAction(GLOBAL_ACTION_BACK)
+        performGlobalAction(GLOBAL_ACTION_BACK) // luôn chạy cho dù đang mở hay khoá điện thoại
         startMicSafe()
     }
 
@@ -201,7 +201,7 @@ class AssistantService : AccessibilityService() {
         val packageName = event?.packageName?.toString() ?: return
         if (packageName == GOOGLE_PACKAGE) {
             handler.removeCallbacks(dismissTask)
-            handler.postDelayed(dismissTask, 4000)
+            handler.postDelayed(dismissTask, 5000)
         } else {
             handler.removeCallbacks(dismissTask)
             if (!isMicOn && !isPaused) startMicSafe()
