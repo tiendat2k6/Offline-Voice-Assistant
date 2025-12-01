@@ -1,118 +1,174 @@
 package com.example.trolyao
 
 import android.accessibilityservice.AccessibilityService
+import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import androidx.core.app.NotificationCompat
 import ai.picovoice.porcupine.PorcupineManager
 import ai.picovoice.porcupine.Porcupine
-import android.content.pm.ServiceInfo
 
 class AssistantService : AccessibilityService() {
 
     private var porcupineManager: PorcupineManager? = null
-    // Nhớ đảm bảo BuildConfig đã import đúng package
+    // Dán lại Key của bạn vào đây (nếu BuildConfig bị lỗi)
     private val accessKey = BuildConfig.SECRET_KEY
-
     private val GOOGLE_PACKAGE = "com.google.android.googlequicksearchbox"
 
     private val handler = Handler(Looper.getMainLooper())
+    private var wakeLock: PowerManager.WakeLock? = null
 
-    // Biến cờ để biết mic đang bật hay tắt
+    private var isPaused = false
     private var isMicOn = false
 
+    private val ACTION_TOGGLE = "com.example.trolyao.ACTION_TOGGLE"
+    // Đổi tên kênh một chút cho đỡ trùng
+    private val CHANNEL_ID = "Assistant_Terminator_V1"
+
+    @SuppressLint("WakelockTimeout")
     override fun onServiceConnected() {
         super.onServiceConnected()
+        Log.d("Assistant", "=== SERVICE CONNECTED ===")
+        try {
+            // 1. Giữ CPU thức
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TroLyAo::WakeLock")
+            wakeLock?.acquire(120 * 60 * 1000L) // Giữ 2 tiếng
+
+            // 2. Tạo thông báo & Init
+            createNotificationChannel()
+            initPorcupine()
+            updateNotification()
+
+        } catch (e: Exception) {
+            Log.e("Assistant", "CRASH tại onServiceConnected: ${e.message}")
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_TOGGLE) {
+            if (isPaused) resumeService() else pauseService()
+        }
+        return START_STICKY
+    }
+
+    private fun pauseService() {
+        isPaused = true
+        stopMic()
+        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (e: Exception) {}
+        updateNotification()
+    }
+
+    private fun resumeService() {
+        isPaused = false
+        try { if (wakeLock?.isHeld == false) wakeLock?.acquire(120 * 60 * 1000L) } catch (e: Exception) {}
+        startMicSafe()
+        updateNotification()
+    }
+
+    @SuppressLint("ForegroundServiceType")
+    private fun updateNotification() {
+        val title = if (isPaused) "Jarvis đang ngủ" else "Jarvis đang trực chiến"
+        val content = if (isPaused) "Đã tắt mic. Nhấn để BẬT LẠI" else "Nói 'Jarvis' hoặc 'Terminator'"
+
+        val btnIcon = if (isPaused) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause
+        val btnText = if (isPaused) "BẬT LẠI" else "TẠM DỪNG"
+
+        val toggleIntent = Intent(this, AssistantService::class.java).apply { action = ACTION_TOGGLE }
+        val togglePendingIntent = PendingIntent.getService(
+            this, 0, toggleIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Dùng MediaStyle để hiện nút trên Xiaomi (nhớ check xem đã thêm thư viện androidx.media chưa nhé)
+        // Nếu chưa thêm thư viện thì xóa dòng .setStyle(...) đi cũng được, nhưng nút sẽ bị ẩn
+        val mediaStyle = androidx.media.app.NotificationCompat.MediaStyle().setShowActionsInCompactView(0)
+
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setOngoing(true)
+            .addAction(btnIcon, btnText, togglePendingIntent)
+            .setStyle(mediaStyle)
+            .build()
 
         try {
-            // 1. Notification (Giữ Service sống)
-            createNotificationChannel()
-            val notification = NotificationCompat.Builder(this, "AssistantChannel")
-                .setContentTitle("Trợ lý ảo đang trực chiến")
-                .setContentText("Jarvis đang nghe...")
-                .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                .setPriority(NotificationCompat.PRIORITY_MIN)
-                .build()
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val type = if (isPaused) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                startForeground(1, notification, type)
             } else {
                 startForeground(1, notification)
             }
-
-            // 2. Khởi tạo Porcupine
-            initPorcupine()
-
         } catch (e: Exception) {
-            Log.e("Assistant", "Lỗi Service: ${e.message}")
+            try { startForeground(1, notification) } catch (e2: Exception) {}
         }
     }
 
     private fun initPorcupine() {
         try {
-            val keywords = arrayOf(Porcupine.BuiltInKeyword.JARVIS, Porcupine.BuiltInKeyword.TERMINATOR)
-            val sensitivities = floatArrayOf(0.7f, 0.7f)
+            // --- ĐỔI LẠI TỪ KHÓA Ở ĐÂY ---
+            val keywords = arrayOf(
+                Porcupine.BuiltInKeyword.JARVIS,      // 0: Mở Google
+                Porcupine.BuiltInKeyword.TERMINATOR   // 1: Tắt màn hình
+            )
+
+            val sensitivities = floatArrayOf(0.7f, 0.8f) // Terminator nhạy 0.8f
 
             porcupineManager = PorcupineManager.Builder()
                 .setAccessKey(accessKey)
                 .setKeywords(keywords)
                 .setSensitivities(sensitivities)
                 .build(applicationContext) { keywordIndex ->
-                    onWakeWordDetected(keywordIndex)
+                    if (!isPaused) onWakeWordDetected(keywordIndex)
                 }
-
-            // Gọi hàm bật mic an toàn
             startMicSafe()
-
         } catch (e: Exception) {
-            Log.e("Assistant", "Lỗi init Porcupine: ${e.message}")
+            Log.e("Assistant", "Lỗi Init Porcupine: ${e.message}")
+            porcupineManager = null
         }
     }
 
-    // --- HÀM BẬT MIC "BẤT TỬ" ---
     private fun startMicSafe() {
-        if (isMicOn) return // Đang bật rồi thì thôi
+        if (isMicOn || isPaused) return
+        if (porcupineManager == null) return
 
         handler.postDelayed({
             try {
-                porcupineManager?.start()
-                isMicOn = true
-                Log.d("Assistant", "--> Đã bật lại Mic thành công!")
+                if (porcupineManager != null) {
+                    porcupineManager?.start()
+                    isMicOn = true
+                    Log.d("Assistant", "Mic BẬT")
+                }
             } catch (e: Exception) {
-                Log.w("Assistant", "Mic đang bận (Google đang dùng?), thử lại sau 1s...")
                 isMicOn = false
-                // ĐỆ QUY: Nếu lỗi, đợi 1 giây rồi tự gọi lại chính nó
-                startMicSafe()
+                Log.w("Assistant", "Mic bận, thử lại sau 1s...")
+                if (!isPaused) startMicSafe()
             }
-        }, 1000) // Delay 1s trước khi thử
+        }, 1000)
     }
 
-    // --- HÀM TẮT MIC ---
     private fun stopMic() {
-        try {
-            porcupineManager?.stop()
-            isMicOn = false
-            Log.d("Assistant", "--> Đã tạm dừng Mic")
-        } catch (e: Exception) {}
+        try { porcupineManager?.stop(); isMicOn = false; Log.d("Assistant", "Mic TẮT") } catch (e: Exception) {}
     }
 
     private fun onWakeWordDetected(index: Int) {
-        // 1. Dừng mic ngay lập tức để nhường cho Google/System
         stopMic()
-
         if (index == 0) {
-            Log.i("Assistant", "JARVIS -> Mở Google")
+            Log.i("Assistant", "--> JARVIS")
             openGoogleAssistant()
-        }
-        else if (index == 1) {
-            Log.i("Assistant", "TERMINATOR -> Tắt màn hình")
+        } else if (index == 1) {
+            Log.i("Assistant", "--> TERMINATOR (LOCK)")
             performLock()
-            // Tắt màn hình xong thì bật lại mic ngay
             startMicSafe()
         }
     }
@@ -121,69 +177,54 @@ class AssistantService : AccessibilityService() {
         val intent = Intent(Intent.ACTION_VOICE_COMMAND)
         intent.setPackage(GOOGLE_PACKAGE)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
-        try {
-            startActivity(intent)
-        } catch (e: Exception) {}
+        try { startActivity(intent) } catch (e: Exception) {}
 
-        // Hủy các lệnh hẹn giờ cũ để tránh chồng chéo
         handler.removeCallbacks(dismissTask)
-        // Hẹn giờ Auto-back sau 4 giây
         handler.postDelayed(dismissTask, 4000)
     }
 
     private fun performLock() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val result = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
-                if (!result) performGlobalAction(GLOBAL_ACTION_BACK)
-            } else {
-                performGlobalAction(GLOBAL_ACTION_BACK)
-            }
+                if (!performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)) performGlobalAction(GLOBAL_ACTION_BACK)
+            } else performGlobalAction(GLOBAL_ACTION_BACK)
         } catch (e: Exception) {}
     }
 
-    // --- LOGIC TỰ ĐỘNG THOÁT GOOGLE ---
     private val dismissTask = Runnable {
-        Log.d("Assistant", "Hết giờ chờ -> Bấm Back")
-
         val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
-        // Chỉ Back nếu đang KHÔNG khóa màn hình
-        if (!keyguardManager.isKeyguardLocked) {
-            performGlobalAction(GLOBAL_ACTION_BACK)
-        }
-
-        // QUAN TRỌNG: Google xong việc rồi -> Bật lại Mic
+        if (!keyguardManager.isKeyguardLocked) performGlobalAction(GLOBAL_ACTION_BACK)
         startMicSafe()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val packageName = event?.packageName?.toString() ?: return
-
         if (packageName == GOOGLE_PACKAGE) {
-            // Google đang hoạt động -> Gia hạn thời gian sống
             handler.removeCallbacks(dismissTask)
             handler.postDelayed(dismissTask, 4000)
         } else {
-            // Đã sang app khác
             handler.removeCallbacks(dismissTask)
-
-            // Nếu mic đang tắt (do lúc nãy gọi Jarvis), thì giờ phải bật lại ngay
-            if (!isMicOn) {
-                startMicSafe()
-            }
+            if (!isMicOn && !isPaused) startMicSafe()
         }
     }
 
     override fun onInterrupt() {}
 
     private fun createNotificationChannel() {
-        val channel = android.app.NotificationChannel(
-            "AssistantChannel", "Trạng thái Trợ lý", android.app.NotificationManager.IMPORTANCE_LOW
-        )
-        getSystemService(android.app.NotificationManager::class.java).createNotificationChannel(channel)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = android.app.NotificationChannel(
+                CHANNEL_ID,
+                "Trợ lý ảo (Terminator)",
+                android.app.NotificationManager.IMPORTANCE_HIGH
+            )
+            channel.description = "Hiện nút bật tắt mic"
+            channel.lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            getSystemService(android.app.NotificationManager::class.java).createNotificationChannel(channel)
+        }
     }
 
     override fun onDestroy() {
+        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (e: Exception) {}
         stopMic()
         porcupineManager?.delete()
         super.onDestroy()

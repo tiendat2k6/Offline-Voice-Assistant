@@ -1,6 +1,7 @@
 package com.example.trolyao
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -8,90 +9,91 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
 
-    // 1. Đăng ký bộ lắng nghe kết quả khi xin quyền Overlay (Vẽ đè)
-    private val overlayPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        // Khi người dùng quay lại từ cài đặt, kiểm tra lại xem đã cấp chưa
-        if (Settings.canDrawOverlays(this)) {
-            checkRuntimePermissions()
-        } else {
-            Toast.makeText(this, "Cần quyền 'Hiển thị trên ứng dụng khác' để hoạt động!", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    // 2. Đăng ký bộ lắng nghe kết quả khi xin quyền Mic & Thông báo
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        // Kiểm tra xem tất cả quyền yêu cầu đã được cấp chưa
-        val allGranted = permissions.entries.all { it.value }
-        if (allGranted) {
-            startAssistantService()
-        } else {
-            Toast.makeText(this, "Cần cấp đủ quyền Micro để nghe lệnh!", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
 
-        // Bắt đầu quy trình kiểm tra quyền ngay khi mở app
-        checkOverlayPermission()
-    }
+        // Tạo giao diện đơn giản bằng code (khỏi lo file layout lỗi)
+        val layout = android.widget.LinearLayout(this)
+        layout.orientation = android.widget.LinearLayout.VERTICAL
+        layout.gravity = android.view.Gravity.CENTER
 
-    // Bước 1: Kiểm tra quyền vẽ đè
-    private fun checkOverlayPermission() {
-        if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Vui lòng cấp quyền 'Hiển thị trên ứng dụng khác'", Toast.LENGTH_LONG).show()
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
-            )
-            // Dùng launcher mới thay cho startActivityForResult
-            overlayPermissionLauncher.launch(intent)
-        } else {
-            // Nếu có rồi thì qua bước 2
-            checkRuntimePermissions()
+        val btnSetup = Button(this)
+        btnSetup.text = "BƯỚC 1: CẤP QUYỀN & BẬT SERVICE"
+        btnSetup.setOnClickListener { checkPermissions() }
+
+        val btnStop = Button(this)
+        btnStop.text = "KHẨN CẤP: TẮT SERVICE (NẾU LỖI)"
+        btnStop.setOnClickListener {
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            startActivity(intent)
+            Toast.makeText(this, "Tìm 'TroLyAo' và TẮT nó đi", Toast.LENGTH_LONG).show()
         }
+
+        layout.addView(btnSetup)
+        layout.addView(btnStop)
+        setContentView(layout)
+
+        // Tự động kiểm tra quyền khi mở app
+        checkPermissions()
     }
 
-    // Bước 2: Kiểm tra quyền Mic và Thông báo
-    private fun checkRuntimePermissions() {
-        val permissionsToRequest = mutableListOf<String>()
-
-        // Luôn cần quyền Mic
+    private fun checkPermissions() {
+        // 1. Quyền Ghi âm (QUAN TRỌNG NHẤT)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 101)
+            return
         }
 
-        // Quyền Thông báo (Chỉ cần cho Android 13/SDK 33 trở lên)
+        // 2. Quyền Thông báo (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 102)
+                return
             }
         }
 
-        if (permissionsToRequest.isNotEmpty()) {
-            // Xin các quyền còn thiếu
-            requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
+        // 3. Quyền Vẽ đè (Overlay) - Để hiện thông báo
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "Cần quyền hiển thị trên ứng dụng khác", Toast.LENGTH_LONG).show()
+            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+            startActivityForResult(intent, 103)
+            return
+        }
+
+        // 4. Kiểm tra xem Service đã bật trong Cài đặt chưa
+        if (!isAccessibilityEnabled()) {
+            Toast.makeText(this, "HÃY BẬT 'TroLyAo' TRONG CÀI ĐẶT!", Toast.LENGTH_LONG).show()
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            startActivity(intent)
         } else {
-            // Đã đủ hết quyền -> Chạy Service
-            startAssistantService()
+            Toast.makeText(this, "Đã sẵn sàng! Hãy thử nói 'Jarvis'", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun startAssistantService() {
-        val intent = Intent(this, AssistantService::class.java)
-        // Vì minSdk của bạn >= 29 nên không cần check if version O nữa
-        startForegroundService(intent)
-        Toast.makeText(this, "Trợ lý ảo đã bắt đầu!", Toast.LENGTH_SHORT).show()
+    // Hàm kiểm tra Service đã bật chưa
+    private fun isAccessibilityEnabled(): Boolean {
+        val am = getSystemService(Context.ACCESSIBILITY_SERVICE) as android.view.accessibility.AccessibilityManager
+        val enabledServices = am.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+        for (service in enabledServices) {
+            if (service.resolveInfo.serviceInfo.packageName == packageName) return true
+        }
+        return false
+    }
+
+    // Xử lý khi người dùng bấm 'Cho phép'
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            checkPermissions() // Kiểm tra tiếp các quyền còn lại
+        } else {
+            Toast.makeText(this, "Không có quyền Mic thì app vô dụng!", Toast.LENGTH_LONG).show()
+        }
     }
 }

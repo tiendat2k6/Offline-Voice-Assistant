@@ -3,6 +3,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- CÁC QUYỀN CẦN THIẾT -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- ĐÃ XÓA DÒNG QUERY_ALL_PACKAGES ĐỂ HẾT CẢNH BÁO -->
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -12,26 +24,6 @@
         android:theme="@style/Theme.TroLyAo"
         tools:targetApi="34">
 
-        <service
-            android:name=".AssistantService"
-            android:enabled="true"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:foregroundServiceType="microphone"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_config" />
-
-        </service>
-
-        <!-- ĐOẠN QUAN TRỌNG NHẤT: KHAI BÁO SERVICE TRỢ NĂNG -->
-        <!-- Nếu code cũ có thẻ <service> nào khác thì XÓA đi, chỉ để lại cái này -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -41,17 +33,33 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name=".AssistantService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_config" />
+        </service>
+
     </application>
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
-    <uses-permission android:name="android.permission.VIBRATE" /> <!-- Quyền Rung -->
-
+    <!-- KHAI BÁO CỤ THỂ (Dùng cái này thay cho Query All Packages) -->
     <queries>
+        <!-- 1. Cho phép nhìn thấy Google App -->
+        <package android:name="com.google.android.googlequicksearchbox" />
+
+        <!-- 2. Cho phép nhìn thấy các app Voice Command -->
+        <intent>
+            <action android:name="android.intent.action.VOICE_COMMAND" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.ASSIST" />
         </intent>
