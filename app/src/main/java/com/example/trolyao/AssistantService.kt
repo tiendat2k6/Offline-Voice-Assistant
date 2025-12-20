@@ -1,250 +1,342 @@
 package com.example.trolyao
 
 import android.accessibilityservice.AccessibilityService
-import android.annotation.SuppressLint
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ServiceInfo
+import android.content.IntentFilter
+import android.hardware.camera2.CameraManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import androidx.core.app.NotificationCompat
 import ai.picovoice.porcupine.PorcupineManager
 import ai.picovoice.porcupine.Porcupine
+import org.vosk.Model
+import org.vosk.Recognizer
+import org.vosk.android.RecognitionListener
+import org.vosk.android.SpeechService
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-class AssistantService : AccessibilityService() {
+class AssistantService : AccessibilityService(), RecognitionListener, TextToSpeech.OnInitListener {
 
-    private var porcupineManager: PorcupineManager? = null
+    // --- CẤU HÌNH ---
     private val accessKey = BuildConfig.SECRET_KEY
-    private val GOOGLE_PACKAGE = "com.google.android.googlequicksearchbox"
+    private val VOSK_MODEL_PATH = "/sdcard/model-en"
+    private val NOTIFICATION_ID = 123
+    private val CHANNEL_ID = "Jarvis_Channel"
 
-    private val handler = Handler(Looper.getMainLooper())
+    // --- BIẾN HỆ THỐNG ---
+    private var porcupineManager: PorcupineManager? = null
+    private var voskModel: Model? = null
+    private var globalRecognizer: Recognizer? = null
+    private var voskService: SpeechService? = null
+
+    private var tts: TextToSpeech? = null
+    private var cameraManager: CameraManager? = null
+
+    // CÁC HANDLER QUẢN LÝ THỜI GIAN
+    private val handler = Handler(Looper.getMainLooper())      // Cho Mic
+    private val flashHandler = Handler(Looper.getMainLooper()) // Cho Đèn Flash
+    private val relaxHandler = Handler(Looper.getMainLooper()) // Cho chế độ Relax
+
     private var wakeLock: PowerManager.WakeLock? = null
 
+    // Trạng thái
+    private var isVoskListening = false
     private var isPaused = false
-    private var isMicOn = false
 
-    private val ACTION_TOGGLE = "com.example.trolyao.ACTION_TOGGLE"
-    private val CHANNEL_ID = "Assistant_Final_Fix_Net_Error"
+    private val notificationReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "ACTION_TOGGLE_JARVIS") {
+                isPaused = !isPaused
+                updateNotification()
+                if (isPaused) {
+                    stopPorcupine()
+                    stopVoskAndReset()
+                    speak("Jarvis sleeping")
+                } else {
+                    speak("Jarvis online")
+                    startPorcupine()
+                }
+            }
+        }
+    }
 
-    // DANH SÁCH NGƯỜI NHÀ (Để không bị Auto Back nhầm)
-    private val SAFE_PACKAGES = listOf(
-        GOOGLE_PACKAGE,
-        "com.android.systemui",
-        "com.miui.home",
-        "android",
-        "com.android.settings",
-        "com.miui.securitycenter"
-    )
-
-    @SuppressLint("WakelockTimeout")
     override fun onServiceConnected() {
         super.onServiceConnected()
         try {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TroLyAo::WakeLock")
-            wakeLock?.acquire(120 * 60 * 1000L) // Giữ CPU thức
+            wakeLock?.acquire(120 * 60 * 1000L)
+
+            tts = TextToSpeech(this, this)
+            cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+
+            val filter = IntentFilter("ACTION_TOGGLE_JARVIS")
+            registerReceiver(notificationReceiver, filter)
 
             createNotificationChannel()
+            startForeground(NOTIFICATION_ID, buildNotification())
+
             initPorcupine()
-            updateNotification()
+            initVoskReady()
 
         } catch (e: Exception) {
-            Log.e("Assistant", "Lỗi khởi động: ${e.message}")
+            Log.e("Assistant", "Start Error: ${e.message}")
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_TOGGLE) {
-            if (isPaused) resumeService() else pauseService()
+    // --- PHẦN THÔNG BÁO ---
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(CHANNEL_ID, "Jarvis Assistant", NotificationManager.IMPORTANCE_LOW)
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
         }
-        return START_STICKY
     }
 
-    private fun pauseService() {
-        isPaused = true
-        stopMic()
-        handler.removeCallbacks(dismissTask)
-        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (e: Exception) {}
-        updateNotification()
-    }
-
-    private fun resumeService() {
-        isPaused = false
-        try { if (wakeLock?.isHeld == false) wakeLock?.acquire(120 * 60 * 1000L) } catch (e: Exception) {}
-        startMicSafe()
-        updateNotification()
-    }
-
-    @SuppressLint("ForegroundServiceType")
-    private fun updateNotification() {
-        val title = if (isPaused) "Jarvis đang tạm dừng" else "Jarvis đang hoạt động"
-//        val content = if (isPaused) "Đã tắt mic. Nhấn để BẬT LẠI" else "Nói 'Jarvis' hoặc 'Terminator'"
-        val content = if (isPaused) "" else ""
-
-        val btnIcon = if (isPaused) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause
-        val btnText = if (isPaused) "BẬT LẠI" else "TẠM DỪNG"
-
-        val toggleIntent = Intent(this, AssistantService::class.java).apply { action = ACTION_TOGGLE }
-        val togglePendingIntent = PendingIntent.getService(
-            this, 0, toggleIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    private fun buildNotification(): Notification {
+        val toggleIntent = Intent("ACTION_TOGGLE_JARVIS")
+        val togglePendingIntent = PendingIntent.getBroadcast(
+            this, 0, toggleIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val statusText = if (isPaused) "Đang ngủ" else "Đang nghe lệnh..."
+        val actionText = if (isPaused) "BẬT JARVIS" else "TẮT JARVIS"
 
-        val mediaStyle = androidx.media.app.NotificationCompat.MediaStyle().setShowActionsInCompactView(0)
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(content)
-            .setSmallIcon(R.drawable.ic_stat_jarvis)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Trợ lý ảo Jarvis")
+            .setContentText(statusText)
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .addAction(android.R.drawable.ic_media_pause, actionText, togglePendingIntent)
             .setOngoing(true)
-            .addAction(btnIcon, btnText, togglePendingIntent)
-            .setStyle(mediaStyle)
             .build()
-
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val type = if (isPaused) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-                startForeground(1, notification, type)
-            } else {
-                startForeground(1, notification)
-            }
-        } catch (e: Exception) {
-            try { startForeground(1, notification) } catch (e2: Exception) {}
-        }
     }
 
+    private fun updateNotification() {
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
+    }
+
+    // --- PORCUPINE ---
     private fun initPorcupine() {
         try {
-            val keywords = arrayOf(Porcupine.BuiltInKeyword.JARVIS, Porcupine.BuiltInKeyword.TERMINATOR)
-            val sensitivities = floatArrayOf(0.8f, 0.9f)
-
             porcupineManager = PorcupineManager.Builder()
                 .setAccessKey(accessKey)
-                .setKeywords(keywords)
-                .setSensitivities(sensitivities)
+                .setKeywords(arrayOf(Porcupine.BuiltInKeyword.JARVIS, Porcupine.BuiltInKeyword.TERMINATOR))
+                .setSensitivities(floatArrayOf(0.7f, 0.7f))
                 .build(applicationContext) { keywordIndex ->
-                    if (!isPaused) onWakeWordDetected(keywordIndex)
+                    if (isPaused) return@build
+
+                    if (keywordIndex == 0) { // JARVIS
+                        Log.d("Assistant", ">>> Heard JARVIS! <<<")
+                        startVoskCommandListening()
+                    }
+                    else if (keywordIndex == 1) { // TERMINATOR
+                        Log.d("Assistant", ">>> Heard TERMINATOR! <<<")
+//                        speak("Hasta la vista, baby")
+                        performLock()
+                    }
                 }
-            startMicSafe()
+            startPorcupine()
         } catch (e: Exception) {
-            porcupineManager = null
+            Log.e("Assistant", "Porcupine Error: ${e.message}")
         }
     }
 
-    private fun startMicSafe() {
-        if (isMicOn || isPaused) return
-        if (porcupineManager == null) return
+    private fun startPorcupine() {
+        if (!isVoskListening && !isPaused) porcupineManager?.start()
+    }
 
+    private fun stopPorcupine() {
+        try { porcupineManager?.stop() } catch (e: Exception) {}
+    }
+
+    // --- VOSK ---
+    private fun initVoskReady() {
+        Thread {
+            try {
+                voskModel = Model(VOSK_MODEL_PATH)
+                Log.d("Assistant", "✅ Vosk Model Loaded!")
+
+                // --- DANH SÁCH TỪ KHÓA (GRAMMAR) ---
+                // Chỉ cho phép nghe những từ này. Nói từ khác nó sẽ ép về từ gần nhất trong list.
+                val grammar = "[" +
+                        "\"jarvis\", \"terminator\", " + // Wake words
+                        "\"google\", \"open\", " +
+                        "\"flash\", \"light\", \"on\", \"off\", \"enable\", \"disable\", " +
+                        "\"time\", \"hour\", " +
+                        "\"relax\", " +
+                        "\"cancel\", \"stop\", " +
+                        "\"lock\", \"screen\", \"bye\"" +
+                        "]"
+
+                // Tạo Recognizer với Grammar
+                globalRecognizer = Recognizer(voskModel, 16000.0f, grammar)
+                Log.d("Assistant", "✅ Recognizer Ready (With Grammar)!")
+
+            } catch (e: Exception) {
+                Log.e("Assistant", "Vosk Load Error: ${e.message}")
+            }
+        }.start()
+    }
+
+
+    private fun startVoskCommandListening() {
+        if (voskModel == null || globalRecognizer == null || isPaused) return
+        stopPorcupine()
         handler.postDelayed({
             try {
-                if (porcupineManager != null) {
-                    porcupineManager?.start()
-                    isMicOn = true
-                    Log.d("Assistant", "Mic BẬT")
-                }
-            } catch (e: Exception) {
-                isMicOn = false
-                // Log.w("Assistant", "Mic bận, thử lại sau 1s...")
-                if (!isPaused) startMicSafe()
-            }
-        }, 1000)
+                Log.d("Assistant", "Listening...")
+                globalRecognizer?.reset()
+                voskService = SpeechService(globalRecognizer, 16000.0f)
+                voskService?.startListening(this)
+                isVoskListening = true
+                handler.postDelayed({ if (isVoskListening) stopVoskAndReset() }, 5000)
+            } catch (e: Exception) { stopVoskAndReset() }
+        }, 200)
     }
 
-    private fun stopMic() {
-        try { porcupineManager?.stop(); isMicOn = false } catch (e: Exception) {}
-    }
-
-    private fun onWakeWordDetected(index: Int) {
-        stopMic() // 1. Tắt Mic ngay
-        if (index == 0) {
-            openGoogleAssistant() // 2. Gọi Google (Có delay bên trong)
-        } else if (index == 1) {
-            performLock()
-            startMicSafe()
-        }
-    }
-
-    private fun openGoogleAssistant() {
-        Log.d("Assistant", "--> Đợi 300ms để nhả Mic cho Google...")
-
-        // Delay 300ms (0.3 giây) để Android kịp thu hồi Mic từ Porcupine
-        handler.postDelayed({
-            try {
-                val intent = Intent(Intent.ACTION_VOICE_COMMAND)
-                intent.setPackage(GOOGLE_PACKAGE) // set cứng thì để, không thì bỏ
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION
-                startActivity(intent)
-            } catch (e: Exception) {
-                Log.e("Assistant", "Lỗi mở Google: ${e.message}")
-            }
-        }, 300)
-
-        // đặt hẹn mới 15 giây (Tính từ lúc gọi)
-        handler.removeCallbacks(dismissTask)
-        handler.postDelayed(dismissTask, 15300) // 15s + 300ms delay
-    }
-
-    private fun performLock() {
+    private fun stopVoskAndReset() {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                if (!performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)) performGlobalAction(GLOBAL_ACTION_BACK)
-            } else performGlobalAction(GLOBAL_ACTION_BACK)
+            voskService?.stop()
+            voskService = null
+            isVoskListening = false
+            startPorcupine()
         } catch (e: Exception) {}
     }
 
-    private val dismissTask = Runnable {
-        // Chốt chặn cuối cùng: Nếu đang Pause thì không Back
-        if (isPaused) {
-            startMicSafe()
-            return@Runnable
-        }
+    // --- XỬ LÝ LỆNH ---
+    override fun onResult(hypothesis: String?) { processResult(hypothesis) }
+    override fun onFinalResult(hypothesis: String?) { processResult(hypothesis); stopVoskAndReset() }
 
-        Log.d("Assistant", "Hết giờ -> BACK")
-        performGlobalAction(GLOBAL_ACTION_BACK)
-        startMicSafe()
+    private fun processResult(json: String?) {
+        val rawJson = json ?: ""
+        val text = if (rawJson.contains("\"text\" : \"")) {
+            rawJson.substringAfter("\"text\" : \"").substringBefore("\"")
+        } else { "" }
+
+        if (text.isNotEmpty()) {
+            Log.d("Assistant", "🟢 Heard: '$text'")
+            when {
+                // GOOGLE
+                text.contains("google") -> { speak("Opening assistant"); openGoogleAssistant(); stopVoskAndReset() }
+
+                // FLASH OFF
+                (text.contains("flash") || text.contains("light")) && (text.contains("off") || text.contains("disable") || text.contains("stop")) -> {
+                    toggleFlashlight(false); speak("Flash off"); stopVoskAndReset()
+                }
+
+                // FLASH ON
+                text.contains("flash") -> { toggleFlashlight(true); speak("Flash on"); stopVoskAndReset() }
+
+                // TERMINATOR
+                text.contains("terminator") || text.contains("lock screen") -> { performLock(); stopVoskAndReset() }
+
+                // --- TÍNH NĂNG MỚI: RELAX (HẸN GIỜ 10 PHÚT) ---
+                text.contains("relax") -> {
+                    startRelaxTimer()
+                    stopVoskAndReset()
+                }
+
+                // GIỜ
+                text.contains("time") || text.contains("hour") -> { readCurrentTime(); stopVoskAndReset() }
+
+                // HỦY (Dừng mọi thứ: Flash, Relax timer...)
+                text.contains("cancel") || text.contains("stop") -> {
+                    relaxHandler.removeCallbacksAndMessages(null) // Hủy hẹn giờ Relax
+                    flashHandler.removeCallbacksAndMessages(null) // Hủy hẹn giờ Flash
+                    speak("Cancelled")
+                    stopVoskAndReset()
+                }
+            }
+        }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (isPaused) return
+    // --- HÀM HỖ TRỢ ---
 
-        val packageName = event?.packageName?.toString() ?: return
+    // Logic Relax: Đếm 10 phút
+    private fun startRelaxTimer() {
+        // Xóa hẹn giờ cũ nếu có
+        relaxHandler.removeCallbacksAndMessages(null)
 
-        // Nếu là người nhà -> Kệ cho đồng hồ chạy
-        if (SAFE_PACKAGES.contains(packageName)) {
-            return
-        }
+        speak("Relax mode activated. I will wake you up in 10 minutes.")
 
-        // Nếu là App Lạ -> Hủy lệnh Back
-        Log.d("Assistant", "Gặp App lạ ($packageName) -> Hủy lệnh Back")
-        handler.removeCallbacks(dismissTask)
-
-        if (!isMicOn && !isPaused) startMicSafe()
+        // 10 phút = 10 * 60 * 1000 = 600000 ms
+        relaxHandler.postDelayed({
+            // Hành động khi hết giờ
+            Log.d("Assistant", "⏰ Hết 10 phút Relax!")
+            // Nói 3 lần cho tỉnh ngủ
+            speak("Time is up! Relax mode over.")
+            Thread.sleep(5000)
+            speak("Time is up!")
+            Thread.sleep(3000)
+            speak("Wake up!")
+        }, 600000)
     }
 
+    override fun onInit(status: Int) { if (status == TextToSpeech.SUCCESS) tts?.setLanguage(Locale.US) }
+    private fun speak(text: String) { tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null) }
+
+    private fun toggleFlashlight(status: Boolean) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val cameraId = cameraManager?.cameraIdList?.get(0)
+                if (cameraId != null) {
+                    cameraManager?.setTorchMode(cameraId, status)
+                    flashHandler.removeCallbacksAndMessages(null)
+                    if (status) {
+                        flashHandler.postDelayed({
+                            try { cameraManager?.setTorchMode(cameraId, false) } catch (e: Exception) {}
+                        }, 60000)
+                    }
+                }
+            }
+        } catch (e: Exception) {}
+    }
+
+    private fun readCurrentTime() {
+        val sdf = SimpleDateFormat("h:mm a", Locale.US)
+        speak("It is ${sdf.format(Date())}")
+    }
+
+    private fun openGoogleAssistant() {
+        try {
+            val intent = Intent(Intent.ACTION_VOICE_COMMAND)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+        } catch (e: Exception) {}
+    }
+
+    private fun performLock() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+        else performGlobalAction(GLOBAL_ACTION_BACK)
+    }
+
+    override fun onPartialResult(hypothesis: String?) {}
+    override fun onError(exception: Exception?) { stopVoskAndReset() }
+    override fun onTimeout() { stopVoskAndReset() }
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
     override fun onInterrupt() {}
 
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = android.app.NotificationChannel(
-                CHANNEL_ID,
-                "Trợ lý ảo (Fix Net Error)",
-                android.app.NotificationManager.IMPORTANCE_HIGH
-            )
-            channel.description = "Hiện nút bật tắt mic"
-            getSystemService(android.app.NotificationManager::class.java).createNotificationChannel(channel)
-        }
-    }
-
     override fun onDestroy() {
-        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (e: Exception) {}
-        stopMic()
-        porcupineManager?.delete()
+        try { unregisterReceiver(notificationReceiver) } catch(e: Exception) {}
+        relaxHandler.removeCallbacksAndMessages(null)
+        stopPorcupine()
+        voskService?.shutdown()
+        globalRecognizer?.close()
+        tts?.stop()
+        tts?.shutdown()
+        wakeLock?.release()
         super.onDestroy()
     }
 }
