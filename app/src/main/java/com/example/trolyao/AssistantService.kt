@@ -46,15 +46,17 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
     private var cameraManager: CameraManager? = null
 
     // CÁC HANDLER QUẢN LÝ THỜI GIAN
-    private val handler = Handler(Looper.getMainLooper())      // Cho Mic
-    private val flashHandler = Handler(Looper.getMainLooper()) // Cho Đèn Flash
-    private val relaxHandler = Handler(Looper.getMainLooper()) // Cho chế độ Relax
+    private val handler = Handler(Looper.getMainLooper())
+    private val flashHandler = Handler(Looper.getMainLooper())
+    private val relaxHandler = Handler(Looper.getMainLooper())
 
     private var wakeLock: PowerManager.WakeLock? = null
 
-    // Trạng thái
+    // TRẠNG THÁI
     private var isVoskListening = false
     private var isPaused = false
+    private var isFlashOn = false
+
 
     private val notificationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -139,11 +141,11 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
 
                     if (keywordIndex == 0) { // JARVIS
                         Log.d("Assistant", ">>> Heard JARVIS! <<<")
-                        startVoskCommandListening()
+                        // Thay vì bật mic ngay, ta gọi hàm xử lý chào hỏi
+                        acknowledgeAndListen()
                     }
                     else if (keywordIndex == 1) { // TERMINATOR
                         Log.d("Assistant", ">>> Heard TERMINATOR! <<<")
-//                        speak("Hasta la vista, baby")
                         performLock()
                     }
                 }
@@ -161,6 +163,24 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
         try { porcupineManager?.stop() } catch (e: Exception) {}
     }
 
+    // --- LOGIC CHÀO HỎI & DELAY ---
+    private fun acknowledgeAndListen() {
+        stopPorcupine()
+
+        // Tăng tốc độ lên 1.7 lần cho nhanh gọn, dứt khoát
+        tts?.setSpeechRate(1.5f)
+
+        // Bỏ dấu chấm hỏi để giọng không bị ngân nga
+        speak("Yes, sir?")
+
+        // Đợi 1s rồi reset tốc độ về bình thường và nghe lệnh
+        handler.postDelayed({
+            tts?.setSpeechRate(1.0f) // Trả về tốc độ chuẩn (1.0)
+            startVoskCommandListening()
+        }, 1000)
+    }
+
+
     // --- VOSK ---
     private fun initVoskReady() {
         Thread {
@@ -168,42 +188,38 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
                 voskModel = Model(VOSK_MODEL_PATH)
                 Log.d("Assistant", "✅ Vosk Model Loaded!")
 
-                // --- DANH SÁCH TỪ KHÓA (GRAMMAR) ---
-                // Chỉ cho phép nghe những từ này. Nói từ khác nó sẽ ép về từ gần nhất trong list.
                 val grammar = "[" +
-                        "\"jarvis\", \"terminator\", " + // Wake words
+                        "\"jarvis\", \"terminator\", " +
                         "\"google\", \"open\", " +
-                        "\"flash\", \"light\", \"on\", \"off\", \"enable\", \"disable\", " +
+                        "\"flash\", \"light\", " +
                         "\"time\", \"hour\", " +
                         "\"relax\", " +
                         "\"cancel\", \"stop\", " +
                         "\"lock\", \"screen\", \"bye\"" +
                         "]"
 
-                // Tạo Recognizer với Grammar
                 globalRecognizer = Recognizer(voskModel, 16000.0f, grammar)
-                Log.d("Assistant", "✅ Recognizer Ready (With Grammar)!")
-
+                Log.d("Assistant", "✅ Recognizer Ready!")
             } catch (e: Exception) {
                 Log.e("Assistant", "Vosk Load Error: ${e.message}")
             }
         }.start()
     }
 
-
     private fun startVoskCommandListening() {
         if (voskModel == null || globalRecognizer == null || isPaused) return
-        stopPorcupine()
-        handler.postDelayed({
-            try {
-                Log.d("Assistant", "Listening...")
-                globalRecognizer?.reset()
-                voskService = SpeechService(globalRecognizer, 16000.0f)
-                voskService?.startListening(this)
-                isVoskListening = true
-                handler.postDelayed({ if (isVoskListening) stopVoskAndReset() }, 5000)
-            } catch (e: Exception) { stopVoskAndReset() }
-        }, 200)
+
+        // Không stopPorcupine ở đây nữa vì đã stop ở hàm acknowledgeAndListen rồi
+
+        try {
+            Log.d("Assistant", "🎤 Listening...")
+            globalRecognizer?.reset()
+            voskService = SpeechService(globalRecognizer, 16000.0f)
+            voskService?.startListening(this)
+            isVoskListening = true
+
+            handler.postDelayed({ if (isVoskListening) stopVoskAndReset() }, 4000)
+        } catch (e: Exception) { stopVoskAndReset() }
     }
 
     private fun stopVoskAndReset() {
@@ -231,30 +247,27 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
                 // GOOGLE
                 text.contains("google") -> { speak("Opening assistant"); openGoogleAssistant(); stopVoskAndReset() }
 
-                // FLASH OFF
-                (text.contains("flash") || text.contains("light")) && (text.contains("off") || text.contains("disable") || text.contains("stop")) -> {
-                    toggleFlashlight(false); speak("Flash off"); stopVoskAndReset()
+                // TOGGLE FLASH
+                text.contains("flash") || text.contains("light") -> {
+                    val newState = !isFlashOn
+                    toggleFlashlight(newState)
+                    if (newState) speak("Flash on") else speak("Flash off")
+                    stopVoskAndReset()
                 }
-
-                // FLASH ON
-                text.contains("flash") -> { toggleFlashlight(true); speak("Flash on"); stopVoskAndReset() }
 
                 // TERMINATOR
                 text.contains("terminator") || text.contains("lock screen") -> { performLock(); stopVoskAndReset() }
 
-                // --- TÍNH NĂNG MỚI: RELAX (HẸN GIỜ 10 PHÚT) ---
-                text.contains("relax") -> {
-                    startRelaxTimer()
-                    stopVoskAndReset()
-                }
+                // RELAX
+                text.contains("relax") -> { startRelaxTimer(); stopVoskAndReset() }
 
-                // GIỜ
+                // TIME
                 text.contains("time") || text.contains("hour") -> { readCurrentTime(); stopVoskAndReset() }
 
-                // HỦY (Dừng mọi thứ: Flash, Relax timer...)
+                // CANCEL
                 text.contains("cancel") || text.contains("stop") -> {
-                    relaxHandler.removeCallbacksAndMessages(null) // Hủy hẹn giờ Relax
-                    flashHandler.removeCallbacksAndMessages(null) // Hủy hẹn giờ Flash
+                    relaxHandler.removeCallbacksAndMessages(null)
+                    flashHandler.removeCallbacksAndMessages(null)
                     speak("Cancelled")
                     stopVoskAndReset()
                 }
@@ -264,27 +277,35 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
 
     // --- HÀM HỖ TRỢ ---
 
-    // Logic Relax: Đếm 10 phút
     private fun startRelaxTimer() {
-        // Xóa hẹn giờ cũ nếu có
         relaxHandler.removeCallbacksAndMessages(null)
-
         speak("Relax mode activated. I will wake you up in 10 minutes.")
 
-        // 10 phút = 10 * 60 * 1000 = 600000 ms
+        // Hẹn giờ 10 phút
         relaxHandler.postDelayed({
-            // Hành động khi hết giờ
-            Log.d("Assistant", "⏰ Hết 10 phút Relax!")
-            // Nói 3 lần cho tỉnh ngủ
+            Log.d("Assistant", "Hết 10 phút Relax!")
+
+            // Câu 1
             speak("Time is up! Relax mode over.")
-            Thread.sleep(5000)
-            speak("Time is up!")
-            Thread.sleep(3000)
-            speak("Wake up!")
+
+            // Đợi 5s sau mới nói câu 2 (Không chặn luồng)
+            relaxHandler.postDelayed({
+                speak("Time is up!")
+
+                // Đợi thêm 3s nữa nói câu 3
+                relaxHandler.postDelayed({
+                    speak("Wake up!")
+                }, 3000)
+
+            }, 5000)
+
         }, 600000)
     }
 
-    override fun onInit(status: Int) { if (status == TextToSpeech.SUCCESS) tts?.setLanguage(Locale.US) }
+
+    override fun onInit(status: Int) { if (status == TextToSpeech.SUCCESS) tts?.setLanguage(Locale.UK) }
+
+    // Hàm speak mặc định dùng STREAM_MUSIC (loa thường)
     private fun speak(text: String) { tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null) }
 
     private fun toggleFlashlight(status: Boolean) {
@@ -293,10 +314,14 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
                 val cameraId = cameraManager?.cameraIdList?.get(0)
                 if (cameraId != null) {
                     cameraManager?.setTorchMode(cameraId, status)
+                    isFlashOn = status
                     flashHandler.removeCallbacksAndMessages(null)
                     if (status) {
                         flashHandler.postDelayed({
-                            try { cameraManager?.setTorchMode(cameraId, false) } catch (e: Exception) {}
+                            try {
+                                cameraManager?.setTorchMode(cameraId, false)
+                                isFlashOn = false
+                            } catch (e: Exception) {}
                         }, 60000)
                     }
                 }
