@@ -32,7 +32,11 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
 
     // --- CẤU HÌNH ---
     private val accessKey = BuildConfig.SECRET_KEY
-    private val VOSK_MODEL_PATH = "/sdcard/model-en"
+    // Đừng dùng String cứng, dùng lazy và getExternalFilesDir
+    private val VOSK_MODEL_PATH by lazy {
+        getExternalFilesDir(null)?.absolutePath + "/model-en"
+    }
+
     private val NOTIFICATION_ID = 123
     private val CHANNEL_ID = "Jarvis_Channel"
 
@@ -80,7 +84,7 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
         try {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TroLyAo::WakeLock")
-            wakeLock?.acquire(120 * 60 * 1000L)
+            wakeLock?.acquire()
 
             tts = TextToSpeech(this, this)
             cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -163,43 +167,49 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
         try { porcupineManager?.stop() } catch (e: Exception) {}
     }
 
-    // --- LOGIC CHÀO HỎI & DELAY ---
+    // Logic chào hỏi + delay
     private fun acknowledgeAndListen() {
         stopPorcupine()
 
-        // Tăng tốc độ lên 1.7 lần cho nhanh gọn, dứt khoát
-        tts?.setSpeechRate(1.5f)
+        // HẠ CAO ĐỘ: Giọng trầm hơn sẽ nghe "ngầu" và "lực" hơn rất nhiều
+        tts?.setPitch(0.92f)
 
-        // Bỏ dấu chấm hỏi để giọng không bị ngân nga
-        speak("Yes, sir?")
+        // GIẢM TỐC ĐỘ: Cho câu này thôi, để từ "Command" được phát âm trọn vẹn
+        tts?.setSpeechRate(1.3f)
 
-        // Đợi 1s rồi reset tốc độ về bình thường và nghe lệnh
+        // Mẹo viết: Thêm dấu chấm sau mỗi từ để ép TTS ngắt nghỉ nhẹ, tạo độ dứt khoát
+        // Hoặc viết là "On your Com-mand."
+        speak("On Your Command.")
+
+        // Vì tốc độ chậm hơn, ta cần tăng delay một chút để Jarvis nói xong mới bật Vosk
         handler.postDelayed({
-            tts?.setSpeechRate(1.0f) // Trả về tốc độ chuẩn (1.0)
+            tts?.setPitch(1.0f)      // Trả lại cao độ chuẩn
+            tts?.setSpeechRate(1.0f)   // Trả lại tốc độ chuẩn
             startVoskCommandListening()
-        }, 1000)
+        }, 1400) // Tăng lên 1.4s cho khớp với tốc độ 1.3f
     }
+
 
 
     // --- VOSK ---
     private fun initVoskReady() {
         Thread {
             try {
+                // Đặt ưu tiên cao cho luồng nhận diện
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO)
+
                 voskModel = Model(VOSK_MODEL_PATH)
-                Log.d("Assistant", "✅ Vosk Model Loaded!")
+                Log.d("Assistant", "Vosk Model Loaded!")
 
                 val grammar = "[" +
-                        "\"jarvis\", \"terminator\", " +
-                        "\"google\", \"open\", " +
-                        "\"flash\", \"light\", " +
-                        "\"time\", \"hour\", " +
-                        "\"relax\", " +
-                        "\"cancel\", \"stop\", " +
-                        "\"lock\", \"screen\", \"bye\"" +
+                        "\"jarvis\", \"terminator\", \"override\", \"over ride\", \"over\", \"ride\", \"right\", " +
+                        "\"google\", \"open\", \"flash\", \"light\", \"time\", \"hour\", \"relax\", " +
+                        "\"cancel\", \"stop\", \"lock\", \"screen\", \"bye\"" +
                         "]"
 
+
                 globalRecognizer = Recognizer(voskModel, 16000.0f, grammar)
-                Log.d("Assistant", "✅ Recognizer Ready!")
+                Log.d("Assistant", "Recognizer Ready!")
             } catch (e: Exception) {
                 Log.e("Assistant", "Vosk Load Error: ${e.message}")
             }
@@ -207,29 +217,60 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
     }
 
     private fun startVoskCommandListening() {
-        if (voskModel == null || globalRecognizer == null || isPaused) return
-
-        // Không stopPorcupine ở đây nữa vì đã stop ở hàm acknowledgeAndListen rồi
+        if (voskModel == null || globalRecognizer == null || isPaused) {
+            Log.e("Assistant", "Vosk not ready or Paused!")
+            stopVoskAndReset() // Trả quyền cho Porcupine nếu Vosk chưa sẵn sàng
+            return
+        }
 
         try {
-            Log.d("Assistant", "🎤 Listening...")
+            Log.d("Assistant", "🎤 Vosk Start Listening...")
             globalRecognizer?.reset()
             voskService = SpeechService(globalRecognizer, 16000.0f)
             voskService?.startListening(this)
             isVoskListening = true
 
-            handler.postDelayed({ if (isVoskListening) stopVoskAndReset() }, 4000)
-        } catch (e: Exception) { stopVoskAndReset() }
+            // Timeout an toàn: Nếu 6 giây không nghe thấy gì thì phải Reset
+            handler.removeCallbacksAndMessages(null) // Xóa các timeout cũ
+            handler.postDelayed({
+                if (isVoskListening) {
+                    Log.d("Assistant", "Vosk Timeout - Resetting...")
+                    stopVoskAndReset()
+                }
+            }, 6000)
+        } catch (e: Exception) {
+            Log.e("Assistant", "Vosk Start Error: ${e.message}")
+            stopVoskAndReset()
+        }
     }
+
 
     private fun stopVoskAndReset() {
         try {
+            Log.d("Assistant", "Stop Vosk and Restarting Porcupine...")
             voskService?.stop()
+            voskService?.cancel() // Thêm cancel để giải phóng hẳn luồng
             voskService = null
             isVoskListening = false
-            startPorcupine()
-        } catch (e: Exception) {}
+
+            // QUAN TRỌNG: Đợi 200ms để phần cứng kịp nhả Mic ra rồi mới bật Porcupine
+            handler.postDelayed({
+                if (!isPaused) {
+                    try {
+                        porcupineManager?.start()
+                        Log.d("Assistant", "Porcupine Re-started")
+                    } catch (e: Exception) {
+                        Log.e("Assistant", "Lỗi khởi động lại Porcupine: ${e.message}")
+                        // Nếu lỗi quá nặng, khởi tạo lại luôn Porcupine
+                        initPorcupine()
+                    }
+                }
+            }, 200)
+        } catch (e: Exception) {
+            Log.e("Assistant", "Fatal Error in Reset: ${e.message}")
+        }
     }
+
 
     // --- XỬ LÝ LỆNH ---
     override fun onResult(hypothesis: String?) { processResult(hypothesis) }
@@ -242,10 +283,23 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
         } else { "" }
 
         if (text.isNotEmpty()) {
-            Log.d("Assistant", "🟢 Heard: '$text'")
+            Log.d("Assistant", "Heard: '$text'")
             when {
+
+                // OVERRIDE
+                text.contains("override") || text.contains("over ride") ||
+                        (text.contains("over") && text.contains("ride")) ||
+                        text.contains("over right")
+                    -> {
+                    startOverrideMode()
+                    stopVoskAndReset()
+                    return
+                }
+
                 // GOOGLE
-                text.contains("google") -> { speak("Opening assistant"); openGoogleAssistant(); stopVoskAndReset() }
+                text.contains("google") -> {
+                    speak("Opening assistant"); openGoogleAssistant(); stopVoskAndReset()
+                }
 
                 // TOGGLE FLASH
                 text.contains("flash") || text.contains("light") -> {
@@ -256,13 +310,19 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
                 }
 
                 // TERMINATOR
-                text.contains("terminator") || text.contains("lock screen") -> { performLock(); stopVoskAndReset() }
+                text.contains("terminator") || text.contains("lock screen") -> {
+                    performLock(); stopVoskAndReset()
+                }
 
                 // RELAX
-                text.contains("relax") -> { startRelaxTimer(); stopVoskAndReset() }
+                text.contains("relax") -> {
+                    startRelaxTimer(); stopVoskAndReset()
+                }
 
                 // TIME
-                text.contains("time") || text.contains("hour") -> { readCurrentTime(); stopVoskAndReset() }
+                text.contains("time") || text.contains("hour") -> {
+                    readCurrentTime(); stopVoskAndReset()
+                }
 
                 // CANCEL
                 text.contains("cancel") || text.contains("stop") -> {
@@ -271,11 +331,46 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
                     speak("Cancelled")
                     stopVoskAndReset()
                 }
+
             }
         }
     }
 
     // --- HÀM HỖ TRỢ ---
+
+    private fun startOverrideMode() {
+        // Hardcode ngày bắt đầu: 23/12/2025 16:00:00 (timestamp)
+        val startTimestamp = 1734944400000L
+        val currentTime = System.currentTimeMillis()
+
+        // Tính số tuần đã qua (1 tuần = 604,800,000 ms)
+        val weeksPassed = ((currentTime - startTimestamp) / 604800000L).toInt()
+
+        // Số phút phạt (không giới hạn)
+        val minutes = 3 + weeksPassed
+
+        relaxHandler.removeCallbacksAndMessages(null)
+
+        speak("Manual Override initiated. Accessing Prefrontal Cortex. Silence required for $minutes minutes.")
+
+        Log.d("Assistant", "SYSTEM OVERRIDE: $minutes min countdown started.")
+
+        // Hẹn giờ kết thúc
+        relaxHandler.postDelayed({
+            speak("Override complete. System stabilized. Prefrontal Cortex is now in control.")
+        }, minutes * 60000L)
+
+        // Nhắc nhở giữ im lặng mỗi phút
+        for (i in 1 until minutes) {
+            relaxHandler.postDelayed({
+                val remaining = minutes - i
+                // Nhắc ngắn gọn như một thông báo hệ thống
+                speak("Override status: $remaining minutes remaining. Maintain silence.")
+            }, i * 60000L)
+        }
+
+    }
+
 
     private fun startRelaxTimer() {
         relaxHandler.removeCallbacksAndMessages(null)
