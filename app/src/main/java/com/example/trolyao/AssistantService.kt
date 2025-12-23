@@ -52,7 +52,8 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
     // CÁC HANDLER QUẢN LÝ THỜI GIAN
     private val handler = Handler(Looper.getMainLooper())
     private val flashHandler = Handler(Looper.getMainLooper())
-    private val relaxHandler = Handler(Looper.getMainLooper())
+    private val systemTaskHandler = Handler(Looper.getMainLooper())
+
 
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -169,26 +170,22 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
 
     // Logic chào hỏi + delay
     private fun acknowledgeAndListen() {
-        stopPorcupine()
+        // Nói trước dừng porcupine sau:
 
-        // HẠ CAO ĐỘ: Giọng trầm hơn sẽ nghe "ngầu" và "lực" hơn rất nhiều
-        tts?.setPitch(0.92f)
-
-        // GIẢM TỐC ĐỘ: Cho câu này thôi, để từ "Command" được phát âm trọn vẹn
+        // TĂNG TỐC ĐỘ: Cho câu này thôi, để từ "Command" nghe lực hơn
         tts?.setSpeechRate(1.3f)
 
-        // Mẹo viết: Thêm dấu chấm sau mỗi từ để ép TTS ngắt nghỉ nhẹ, tạo độ dứt khoát
-        // Hoặc viết là "On your Com-mand."
         speak("On Your Command.")
 
-        // Vì tốc độ chậm hơn, ta cần tăng delay một chút để Jarvis nói xong mới bật Vosk
+        // dừng Porcupine
+        stopPorcupine()
+
+        // Vì tốc độ chậm hơn, cần tăng delay một chút để Jarvis nói xong mới bật Vosk
         handler.postDelayed({
-            tts?.setPitch(1.0f)      // Trả lại cao độ chuẩn
-            tts?.setSpeechRate(1.0f)   // Trả lại tốc độ chuẩn
+            tts?.setSpeechRate(1.1f)   // Trả lại tốc độ chuẩn
             startVoskCommandListening()
         }, 1400) // Tăng lên 1.4s cho khớp với tốc độ 1.3f
     }
-
 
 
     // --- VOSK ---
@@ -324,14 +321,25 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
                     readCurrentTime(); stopVoskAndReset()
                 }
 
-                // CANCEL
+                // CANCEL / STOP
                 text.contains("cancel") || text.contains("stop") -> {
-                    relaxHandler.removeCallbacksAndMessages(null)
-                    flashHandler.removeCallbacksAndMessages(null)
-                    speak("Cancelled")
-                    stopVoskAndReset()
-                }
+                    Log.d("Assistant", "!!! EMERGENCY CANCEL INITIATED !!!")
 
+                    // 1. Dừng mọi lịch trình phát ngôn của Override và Relax
+                    systemTaskHandler.removeCallbacksAndMessages(null)
+
+                    // 2. Xóa sạch hàng đợi nói của TTS (Quan trọng!)
+                    // QUEUE_FLUSH giúp hủy mọi câu nói "Maintain silence" đang chờ phát
+                    tts?.stop()
+
+                    // 4. Xác nhận đã hủy
+                    speak("All active protocols terminated. Standing by, sir.")
+
+                    Log.d("Assistant", "Override & Relax: KILLED")
+
+                    stopVoskAndReset()
+                    return
+                }
             }
         }
     }
@@ -339,8 +347,9 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
     // --- HÀM HỖ TRỢ ---
 
     private fun startOverrideMode() {
-        // Hardcode ngày bắt đầu: 23/12/2025 16:00:00 (timestamp)
-        val startTimestamp = 1734944400000L
+        // Timestamp chuẩn cho 23/12/2025 - 16:00:00 (Giờ Việt Nam)
+        val startTimestamp = 1766480400000L
+
         val currentTime = System.currentTimeMillis()
 
         // Tính số tuần đã qua (1 tuần = 604,800,000 ms)
@@ -349,20 +358,20 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
         // Số phút phạt (không giới hạn)
         val minutes = 3 + weeksPassed
 
-        relaxHandler.removeCallbacksAndMessages(null)
+        systemTaskHandler.removeCallbacksAndMessages(null)
 
         speak("Manual Override initiated. Accessing Prefrontal Cortex. Silence required for $minutes minutes.")
 
         Log.d("Assistant", "SYSTEM OVERRIDE: $minutes min countdown started.")
 
         // Hẹn giờ kết thúc
-        relaxHandler.postDelayed({
+        systemTaskHandler.postDelayed({
             speak("Override complete. System stabilized. Prefrontal Cortex is now in control.")
         }, minutes * 60000L)
 
         // Nhắc nhở giữ im lặng mỗi phút
         for (i in 1 until minutes) {
-            relaxHandler.postDelayed({
+            systemTaskHandler.postDelayed({
                 val remaining = minutes - i
                 // Nhắc ngắn gọn như một thông báo hệ thống
                 speak("Override status: $remaining minutes remaining. Maintain silence.")
@@ -373,32 +382,43 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
 
 
     private fun startRelaxTimer() {
-        relaxHandler.removeCallbacksAndMessages(null)
+        systemTaskHandler.removeCallbacksAndMessages(null)
         speak("Relax mode activated. I will wake you up in 10 minutes.")
 
         // Hẹn giờ 10 phút
-        relaxHandler.postDelayed({
+        systemTaskHandler.postDelayed({
             Log.d("Assistant", "Hết 10 phút Relax!")
 
             // Câu 1
             speak("Time is up! Relax mode over.")
 
-            // Đợi 5s sau mới nói câu 2 (Không chặn luồng)
-            relaxHandler.postDelayed({
+            // Đợi 4s sau mới nói câu 2 (Không chặn luồng)
+            systemTaskHandler.postDelayed({
                 speak("Time is up!")
 
                 // Đợi thêm 3s nữa nói câu 3
-                relaxHandler.postDelayed({
+                systemTaskHandler.postDelayed({
                     speak("Wake up!")
                 }, 3000)
 
-            }, 5000)
+            }, 4000)
 
         }, 600000)
     }
 
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts?.setLanguage(Locale.UK)
 
-    override fun onInit(status: Int) { if (status == TextToSpeech.SUCCESS) tts?.setLanguage(Locale.UK) }
+            // ĐẶT CỐ ĐỊNH Ở ĐÂY
+            tts?.setPitch(0.92f)      // Giọng trầm ngầu
+            tts?.setSpeechRate(1.1f)   // Tốc độ chuyên nghiệp
+
+            // Phát một chuỗi rỗng để "mở luồng"
+            tts?.speak("", TextToSpeech.QUEUE_FLUSH, null, null)
+        }
+    }
+
 
     // Hàm speak mặc định dùng STREAM_MUSIC (loa thường)
     private fun speak(text: String) { tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null) }
@@ -425,9 +445,18 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
     }
 
     private fun readCurrentTime() {
-        val sdf = SimpleDateFormat("h:mm a", Locale.US)
-        speak("It is ${sdf.format(Date())}")
+        val timeSdf = SimpleDateFormat("h:mm a", Locale.US)
+        val daySdf = SimpleDateFormat("EEEE", Locale.US)
+
+        val time = timeSdf.format(Date())
+        val day = daySdf.format(Date())
+
+        // "Current time is, [nghỉ nhẹ] 10:30 PM. [nghỉ dài] On, [nghỉ nhẹ] Tuesday. Sir."
+        val jarvisSpeech = "Current time is, $time. On, $day. Sir."
+
+        speak(jarvisSpeech)
     }
+
 
     private fun openGoogleAssistant() {
         try {
@@ -450,7 +479,7 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
 
     override fun onDestroy() {
         try { unregisterReceiver(notificationReceiver) } catch(e: Exception) {}
-        relaxHandler.removeCallbacksAndMessages(null)
+        systemTaskHandler.removeCallbacksAndMessages(null)
         stopPorcupine()
         voskService?.shutdown()
         globalRecognizer?.close()
