@@ -10,58 +10,50 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.camera2.CameraManager
-import android.os.Build
-import android.os.Handler
-import android.os.Looper
-import android.os.PowerManager
+import android.media.AudioFormat
+import android.media.AudioManager
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import android.os.*
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import androidx.core.app.NotificationCompat
 import ai.picovoice.porcupine.PorcupineManager
 import ai.picovoice.porcupine.Porcupine
-import org.vosk.Model
-import org.vosk.Recognizer
-import org.vosk.android.RecognitionListener
-import org.vosk.android.SpeechService
+import android.annotation.SuppressLint
+import com.k2fsa.sherpa.onnx.*
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
+import android.os.Handler
+import android.os.Looper
+import androidx.core.content.ContextCompat
 
-class AssistantService : AccessibilityService(), RecognitionListener, TextToSpeech.OnInitListener {
+class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
     // --- CẤU HÌNH ---
+    private val SHERPA_DIR = "sherpa-onnx-en"
     private val accessKey = BuildConfig.SECRET_KEY
-    // Đừng dùng String cứng, dùng lazy và getExternalFilesDir
-    private val VOSK_MODEL_PATH by lazy {
-        getExternalFilesDir(null)?.absolutePath + "/model-en"
-    }
-
     private val NOTIFICATION_ID = 123
     private val CHANNEL_ID = "Jarvis_Channel"
 
     // --- BIẾN HỆ THỐNG ---
     private var porcupineManager: PorcupineManager? = null
-    private var voskModel: Model? = null
-    private var globalRecognizer: Recognizer? = null
-    private var voskService: SpeechService? = null
-
+    private var onlineRecognizer: OnlineRecognizer? = null
+    private var audioRecord: AudioRecord? = null
     private var tts: TextToSpeech? = null
     private var cameraManager: CameraManager? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
-    // CÁC HANDLER QUẢN LÝ THỜI GIAN
     private val handler = Handler(Looper.getMainLooper())
-    private val flashHandler = Handler(Looper.getMainLooper())
+    private val flashHandler = Handler(Looper.getMainLooper()) // <--- THÊM DÒNG NÀY
     private val systemTaskHandler = Handler(Looper.getMainLooper())
 
 
-    private var wakeLock: PowerManager.WakeLock? = null
-
-    // TRẠNG THÁI
-    private var isVoskListening = false
+    private var isSherpaListening = false
     private var isPaused = false
     private var isFlashOn = false
-
 
     private val notificationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -69,12 +61,9 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
                 isPaused = !isPaused
                 updateNotification()
                 if (isPaused) {
-                    stopPorcupine()
-                    stopVoskAndReset()
-                    speak("Jarvis sleeping")
+                    stopPorcupine(); stopSherpaListening(); speak("Jarvis sleeping")
                 } else {
-                    speak("Jarvis online")
-                    startPorcupine()
+                    speak("Jarvis online"); startPorcupine()
                 }
             }
         }
@@ -83,58 +72,73 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
     override fun onServiceConnected() {
         super.onServiceConnected()
         try {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TroLyAo::WakeLock")
+            val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Assistant::WakeLock")
             wakeLock?.acquire()
 
             tts = TextToSpeech(this, this)
-            cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
 
             val filter = IntentFilter("ACTION_TOGGLE_JARVIS")
-            registerReceiver(notificationReceiver, filter)
+
+            ContextCompat.registerReceiver(this, notificationReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+
 
             createNotificationChannel()
             startForeground(NOTIFICATION_ID, buildNotification())
 
             initPorcupine()
-            initVoskReady()
-
-        } catch (e: Exception) {
-            Log.e("Assistant", "Start Error: ${e.message}")
-        }
+            initSherpaReady()
+        } catch (e: Exception) { Log.e("Jarvis", "Error: ${e.message}") }
     }
 
-    // --- PHẦN THÔNG BÁO ---
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, "Jarvis Assistant", NotificationManager.IMPORTANCE_LOW)
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
-        }
+    // --- 1. KHỞI TẠO SHERPA (ASR) ---
+    private fun initSherpaReady() {
+        if (onlineRecognizer != null) return
+        Thread {
+            try {
+                val config = OnlineRecognizerConfig(
+                    featConfig = FeatureConfig(sampleRate = 16000, featureDim = 80),
+                    modelConfig = OnlineModelConfig(
+                        transducer = OnlineTransducerModelConfig(
+                            encoder = "$SHERPA_DIR/encoder.int8.onnx",
+                            decoder = "$SHERPA_DIR/decoder.int8.onnx",
+                            joiner = "$SHERPA_DIR/joiner.int8.onnx",
+                        ),
+                        tokens = "$SHERPA_DIR/tokens.txt",
+                        modelType = "transducer",
+                        numThreads = 1,
+                        debug = false
+                    ),
+
+                    endpointConfig = EndpointConfig(
+                        // Rule 1: Đợi 2.4s ban đầu. Nếu ông chưa kịp nói gì sau "On your command" thì nó sẽ huỷ.
+                        rule1 = EndpointRule(false, 2.4f, 0.0f),
+
+                        // Rule 2: Đợi im lặng sau khi nói. Hạ xuống 0.8s để phản xạ nhanh hơn.
+                        // (Đủ để ông nói "Flash... light" mà không bị cắt, nhưng đủ nhanh để bật đèn ngay)
+                        rule2 = EndpointRule(true, 0.8f, 0.0f),
+
+                        // Rule 3: PHANH KHẨN CẤP. Phải để TRUE để ép buộc dừng sau 10 giây.
+                        // Tôi để 10s để nó không bị "đá nhau" với cái Handler 6s của ông.
+                        rule3 = EndpointRule(true, 0.0f, 10.0f)
+                    ),
+
+                    enableEndpoint = true
+                )
+                onlineRecognizer = OnlineRecognizer(assets, config)
+                Log.d("JARVIS_DEBUG", ">> AI Model Ready!")
+
+                // Phải dùng handler.post vì hàm speak cần chạy trên Luồng Chính (Main Thread)
+                handler.post {
+                    speak("System core initialized. I am ready, sir.")
+                }
+
+            } catch (e: Exception) { Log.e("JARVIS_DEBUG", "Sherpa Load Error: ${e.message}") }
+        }.start()
     }
 
-    private fun buildNotification(): Notification {
-        val toggleIntent = Intent("ACTION_TOGGLE_JARVIS")
-        val togglePendingIntent = PendingIntent.getBroadcast(
-            this, 0, toggleIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val statusText = if (isPaused) "Đang ngủ" else "Đang nghe lệnh..."
-        val actionText = if (isPaused) "BẬT JARVIS" else "TẮT JARVIS"
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Trợ lý ảo Jarvis")
-            .setContentText(statusText)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .addAction(android.R.drawable.ic_media_pause, actionText, togglePendingIntent)
-            .setOngoing(true)
-            .build()
-    }
-
-    private fun updateNotification() {
-        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
-    }
-
-    // --- PORCUPINE ---
+    // --- 2. PORCUPINE (WAKE WORD) ---
     private fun initPorcupine() {
         try {
             porcupineManager = PorcupineManager.Builder()
@@ -143,349 +147,272 @@ class AssistantService : AccessibilityService(), RecognitionListener, TextToSpee
                 .setSensitivities(floatArrayOf(0.7f, 0.7f))
                 .build(applicationContext) { keywordIndex ->
                     if (isPaused) return@build
-
-                    if (keywordIndex == 0) { // JARVIS
-                        Log.d("Assistant", ">>> Heard JARVIS! <<<")
-                        // Thay vì bật mic ngay, ta gọi hàm xử lý chào hỏi
-                        acknowledgeAndListen()
-                    }
-                    else if (keywordIndex == 1) { // TERMINATOR
-                        Log.d("Assistant", ">>> Heard TERMINATOR! <<<")
-                        performLock()
-                    }
+                    if (keywordIndex == 0) acknowledgeAndListen() // JARVIS
+                    else if (keywordIndex == 1) performLock() // TERMINATOR
                 }
             startPorcupine()
-        } catch (e: Exception) {
-            Log.e("Assistant", "Porcupine Error: ${e.message}")
-        }
+        } catch (e: Exception) { Log.e("Jarvis", "Porcupine Error: ${e.message}") }
     }
 
-    private fun startPorcupine() {
-        if (!isVoskListening && !isPaused) porcupineManager?.start()
-    }
+    private fun startPorcupine() { if (!isSherpaListening && !isPaused) porcupineManager?.start() }
+    private fun stopPorcupine() { try { porcupineManager?.stop() } catch (e: Exception) {} }
 
-    private fun stopPorcupine() {
-        try { porcupineManager?.stop() } catch (e: Exception) {}
-    }
-
-    // Logic chào hỏi + delay
     private fun acknowledgeAndListen() {
-        // Nói trước dừng porcupine sau:
+        stopPorcupine() // Dừng Porcupine để nhả Mic
 
-        // TĂNG TỐC ĐỘ: Cho câu này thôi, để từ "Command" nghe lực hơn
-        tts?.setSpeechRate(1.3f)
+        // Ép tốc độ nói nhanh hơn tí cho nó ngầu
+        tts?.setSpeechRate(1.2f)
 
-        speak("On Your Command.")
+        // QUAN TRỌNG: Phải truyền ID là "READY" ở đây
+        speak("On your command.", "READY")
 
-        // dừng Porcupine
-        stopPorcupine()
-
-        // Vì tốc độ chậm hơn, cần tăng delay một chút để Jarvis nói xong mới bật Vosk
-        handler.postDelayed({
-            tts?.setSpeechRate(1.1f)   // Trả lại tốc độ chuẩn
-            startVoskCommandListening()
-        }, 1400) // Tăng lên 1.4s cho khớp với tốc độ 1.3f
-    }
-
-
-    // --- VOSK ---
-    private fun initVoskReady() {
-        Thread {
-            try {
-                // Đặt ưu tiên cao cho luồng nhận diện
-                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO)
-
-                voskModel = Model(VOSK_MODEL_PATH)
-                Log.d("Assistant", "Vosk Model Loaded!")
-
-                val grammar = "[" +
-                        "\"jarvis\", \"terminator\", \"override\", \"over ride\", \"over\", \"ride\", \"right\", " +
-                        "\"google\", \"open\", \"flash\", \"light\", \"time\", \"hour\", \"relax\", " +
-                        "\"cancel\", \"stop\", \"lock\", \"screen\", \"bye\"" +
-                        "]"
-
-
-                globalRecognizer = Recognizer(voskModel, 16000.0f, grammar)
-                Log.d("Assistant", "Recognizer Ready!")
-            } catch (e: Exception) {
-                Log.e("Assistant", "Vosk Load Error: ${e.message}")
-            }
-        }.start()
-    }
-
-    private fun startVoskCommandListening() {
-        if (voskModel == null || globalRecognizer == null || isPaused) {
-            Log.e("Assistant", "Vosk not ready or Paused!")
-            stopVoskAndReset() // Trả quyền cho Porcupine nếu Vosk chưa sẵn sàng
-            return
-        }
-
-        try {
-            Log.d("Assistant", "🎤 Vosk Start Listening...")
-            globalRecognizer?.reset()
-            voskService = SpeechService(globalRecognizer, 16000.0f)
-            voskService?.startListening(this)
-            isVoskListening = true
-
-            // Timeout an toàn: Nếu 6 giây không nghe thấy gì thì phải Reset
-            handler.removeCallbacksAndMessages(null) // Xóa các timeout cũ
-            handler.postDelayed({
-                if (isVoskListening) {
-                    Log.d("Assistant", "Vosk Timeout - Resetting...")
-                    stopVoskAndReset()
+        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {}
+            override fun onDone(utteranceId: String?) {
+                if (utteranceId == "READY") {
+                    // Đợi 800ms để loa tắt hẳn, tránh Mic thu lại tiếng vang của chính Jarvis
+                    handler.postDelayed({
+                        startSherpaListening() // BẮT ĐẦU NGHE LỆNH TẠI ĐÂY
+                    }, 800)
                 }
-            }, 6000)
-        } catch (e: Exception) {
-            Log.e("Assistant", "Vosk Start Error: ${e.message}")
-            stopVoskAndReset()
-        }
+            }
+            override fun onError(utteranceId: String?) {
+                Log.e("JARVIS_DEBUG", "Lỗi phát âm thanh!")
+                // Nếu lỗi cũng phải bật Mic lên, không là nó "mất hút" luôn
+                handler.post { startSherpaListening() }
+            }
+        })
     }
 
 
-    private fun stopVoskAndReset() {
-        try {
-            Log.d("Assistant", "Stop Vosk and Restarting Porcupine...")
-            voskService?.stop()
-            voskService?.cancel() // Thêm cancel để giải phóng hẳn luồng
-            voskService = null
-            isVoskListening = false
+    // --- 3. SHERPA LISTENING (MAIN AI) ---
+    @SuppressLint("MissingPermission")
+    private fun startSherpaListening() {
+        if (onlineRecognizer == null || isPaused) return
+        isSherpaListening = true
 
-            // QUAN TRỌNG: Đợi 200ms để phần cứng kịp nhả Mic ra rồi mới bật Porcupine
-            handler.postDelayed({
-                if (!isPaused) {
-                    try {
-                        porcupineManager?.start()
-                        Log.d("Assistant", "Porcupine Re-started")
-                    } catch (e: Exception) {
-                        Log.e("Assistant", "Lỗi khởi động lại Porcupine: ${e.message}")
-                        // Nếu lỗi quá nặng, khởi tạo lại luôn Porcupine
-                        initPorcupine()
+        try {
+            val bufferSize = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+            audioRecord = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000,
+                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, if (bufferSize > 0) bufferSize else 2048)
+
+            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) return
+            audioRecord?.startRecording()
+        } catch (e: Exception) { Log.e("JARVIS_DEBUG", "Mic Error: ${e.message}"); return }
+
+        Thread {
+            val stream = onlineRecognizer!!.createStream()
+            val buffer = ShortArray(1024)
+            try {
+                while (isSherpaListening) {
+                    val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+                    if (read > 0) {
+                        val floatBuffer = FloatArray(read) { (buffer[it].toFloat() / 32768.0f) * 1.0f }
+                        stream.acceptWaveform(floatBuffer, 16000)
+
+                        while (onlineRecognizer!!.isReady(stream)) { onlineRecognizer!!.decode(stream) }
+
+                        val result = onlineRecognizer!!.getResult(stream).text.lowercase()
+
+                        // Hiển thị tiến trình AI đang đoán (để ông debug)
+                        if (result.isNotEmpty()) Log.d("JARVIS_DEBUG", ">> Đang nghe: $result")
+
+                        if (onlineRecognizer!!.isEndpoint(stream)) {
+                            val finalResult = onlineRecognizer!!.getResult(stream).text
+
+                            if (isValidCommand(finalResult)) {
+                                // NẾU LÀ LỆNH HỢP LỆ -> THỰC THI VÀ DỪNG NGHE
+                                Log.d("JARVIS_DEBUG", ">> KHỚP LỆNH: $finalResult. Đang thực thi...")
+                                handler.post { processCommand(finalResult) }
+                                isSherpaListening = false
+                                break
+                            } else {
+                                // NẾU KHÔNG PHẢI LỆNH (TIẾNG ỒN) -> RESET ĐỂ NGHE TIẾP
+                                Log.d("JARVIS_DEBUG", ">> RÁC: '$finalResult'. Đang xóa đệm để nghe lại...")
+                                onlineRecognizer!!.reset(stream) // Xóa dữ liệu cũ trong RAM
+                                // Không gọi break, vòng lặp while sẽ tiếp tục
+                            }
+                        }
+                    } else if (read < 0) {
+                        Log.e("JARVIS_DEBUG", ">> LỖI MIC: Hệ thống đã ngắt quyền ghi âm!")
+                        break
                     }
                 }
-            }, 200)
-        } catch (e: Exception) {
-            Log.e("Assistant", "Fatal Error in Reset: ${e.message}")
-        }
-    }
-
-
-    // --- XỬ LÝ LỆNH ---
-    override fun onResult(hypothesis: String?) { processResult(hypothesis) }
-    override fun onFinalResult(hypothesis: String?) { processResult(hypothesis); stopVoskAndReset() }
-
-    private fun processResult(json: String?) {
-        val rawJson = json ?: ""
-        val text = if (rawJson.contains("\"text\" : \"")) {
-            rawJson.substringAfter("\"text\" : \"").substringBefore("\"")
-        } else { "" }
-
-        if (text.isNotEmpty()) {
-            Log.d("Assistant", "Heard: '$text'")
-            when {
-
-                // OVERRIDE
-                text.contains("override") || text.contains("over ride") ||
-                        (text.contains("over") && text.contains("ride")) ||
-                        text.contains("over right")
-                    -> {
-                    startOverrideMode()
-                    stopVoskAndReset()
-                    return
-                }
-
-                // GOOGLE
-                text.contains("google") -> {
-                    speak("Opening assistant"); openGoogleAssistant(); stopVoskAndReset()
-                }
-
-                // TOGGLE FLASH
-                text.contains("flash") || text.contains("light") -> {
-                    val newState = !isFlashOn
-                    toggleFlashlight(newState)
-                    if (newState) speak("Flash on") else speak("Flash off")
-                    stopVoskAndReset()
-                }
-
-                // TERMINATOR
-                text.contains("terminator") || text.contains("lock screen") -> {
-                    performLock(); stopVoskAndReset()
-                }
-
-                // RELAX
-                text.contains("relax") -> {
-                    startRelaxTimer(); stopVoskAndReset()
-                }
-
-                // TIME
-                text.contains("time") || text.contains("hour") -> {
-                    readCurrentTime(); stopVoskAndReset()
-                }
-
-                // CANCEL / STOP
-                text.contains("cancel") || text.contains("stop") -> {
-                    Log.d("Assistant", "!!! EMERGENCY CANCEL INITIATED !!!")
-
-                    // 1. Dừng mọi lịch trình phát ngôn của Override và Relax
-                    systemTaskHandler.removeCallbacksAndMessages(null)
-
-                    // 2. Xóa sạch hàng đợi nói của TTS (Quan trọng!)
-                    // QUEUE_FLUSH giúp hủy mọi câu nói "Maintain silence" đang chờ phát
-                    tts?.stop()
-
-                    // 4. Xác nhận đã hủy
-                    speak("All active protocols terminated. Standing by, sir.")
-
-                    Log.d("Assistant", "Override & Relax: KILLED")
-
-                    stopVoskAndReset()
-                    return
-                }
+            } finally {
+                onlineRecognizer?.reset(stream)
+                stream.release()
+                handler.post { stopSherpaListening() }
             }
+        }.start()
+
+        handler.postDelayed({ if (isSherpaListening) stopSherpaListening() }, 6000)
+    }
+
+    private fun stopSherpaListening() {
+        isSherpaListening = false
+        try {
+            audioRecord?.stop()
+            audioRecord?.release()
+            audioRecord = null
+        } catch (e: Exception) {}
+        handler.postDelayed({ startPorcupine() }, 300)
+    }
+
+    // --- 4. XỬ LÝ LỆNH (COMMAND CENTER) ---
+    private fun processCommand(text: String) {
+        val cmd = text.lowercase()
+        Log.d("JARVIS_DEBUG", "Executing: $cmd")
+
+        when {
+            // FLASH (Bắt lỗi "flesh" luôn cho chắc)
+            cmd.contains("flash") || cmd.contains("light") || cmd.contains("flesh") -> {
+                isFlashOn = !isFlashOn
+                toggleFlashlight(isFlashOn)
+                speak(if (isFlashOn) "Flashlight on" else "Flashlight off")
+            }
+
+            // TIME
+            cmd.contains("time") || cmd.contains("hour") -> readCurrentTime()
+
+            // GOOGLE ASSISTANT
+            cmd.contains("google") || cmd.contains("open assistant") -> openGoogleAssistant()
+
+            // RELAX MODE
+            cmd.contains("relax") -> startRelaxTimer()
+
+            // OVERRIDE MODE
+            cmd.contains("override") || cmd.contains("over ride") -> startOverrideMode()
+
+            // STOP / CANCEL
+            cmd.contains("stop") || cmd.contains("cancel") || cmd.contains("terminate") -> {
+                systemTaskHandler.removeCallbacksAndMessages(null)
+                tts?.stop()
+                speak("All protocols terminated, sir.")
+            }
+
+            // LOCK SCREEN
+            cmd.contains("lock") || cmd.contains("screen") -> performLock()
         }
     }
 
-    // --- HÀM HỖ TRỢ ---
-
-    private fun startOverrideMode() {
-        // Timestamp chuẩn cho 23/12/2025 - 16:00:00 (Giờ Việt Nam)
-        val startTimestamp = 1766480400000L
-
-        val currentTime = System.currentTimeMillis()
-
-        // Tính số tuần đã qua (1 tuần = 604,800,000 ms)
-        val weeksPassed = ((currentTime - startTimestamp) / 604800000L).toInt()
-
-        // Số phút phạt (không giới hạn)
-        val minutes = 3 + weeksPassed
-
-        systemTaskHandler.removeCallbacksAndMessages(null)
-
-        speak("Manual Override initiated. Accessing Prefrontal Cortex. Silence required for $minutes minutes.")
-
-        Log.d("Assistant", "SYSTEM OVERRIDE: $minutes min countdown started.")
-
-        // Hẹn giờ kết thúc
-        systemTaskHandler.postDelayed({
-            speak("Override complete. System stabilized. Prefrontal Cortex is now in control.")
-        }, minutes * 60000L)
-
-        // Nhắc nhở giữ im lặng mỗi phút
-        for (i in 1 until minutes) {
-            systemTaskHandler.postDelayed({
-                val remaining = minutes - i
-                // Nhắc ngắn gọn như một thông báo hệ thống
-                speak("Override status: $remaining minutes remaining. Maintain silence.")
-            }, i * 60000L)
-        }
-
-    }
-
-
-    private fun startRelaxTimer() {
-        systemTaskHandler.removeCallbacksAndMessages(null)
-        speak("Relax mode activated. I will wake you up in 10 minutes.")
-
-        // Hẹn giờ 10 phút
-        systemTaskHandler.postDelayed({
-            Log.d("Assistant", "Hết 10 phút Relax!")
-
-            // Câu 1
-            speak("Time is up! Relax mode over.")
-
-            // Đợi 4s sau mới nói câu 2 (Không chặn luồng)
-            systemTaskHandler.postDelayed({
-                speak("Time is up!")
-
-                // Đợi thêm 3s nữa nói câu 3
-                systemTaskHandler.postDelayed({
-                    speak("Wake up!")
-                }, 3000)
-
-            }, 4000)
-
-        }, 600000)
-    }
-
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            tts?.setLanguage(Locale.UK)
-
-            // ĐẶT CỐ ĐỊNH Ở ĐÂY
-            tts?.setPitch(0.92f)      // Giọng trầm ngầu
-            tts?.setSpeechRate(1.1f)   // Tốc độ chuyên nghiệp
-
-            // Phát một chuỗi rỗng để "mở luồng"
-            tts?.speak("", TextToSpeech.QUEUE_FLUSH, null, null)
-        }
-    }
-
-
-    // Hàm speak mặc định dùng STREAM_MUSIC (loa thường)
-    private fun speak(text: String) { tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null) }
+    // --- 5. CÁC TÍNH NĂNG CHI TIẾT ---
 
     private fun toggleFlashlight(status: Boolean) {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val cameraId = cameraManager?.cameraIdList?.get(0)
-                if (cameraId != null) {
-                    cameraManager?.setTorchMode(cameraId, status)
-                    isFlashOn = status
-                    flashHandler.removeCallbacksAndMessages(null)
-                    if (status) {
-                        flashHandler.postDelayed({
-                            try {
-                                cameraManager?.setTorchMode(cameraId, false)
-                                isFlashOn = false
-                            } catch (e: Exception) {}
-                        }, 60000)
-                    }
-                }
+            val cameraId = cameraManager?.cameraIdList?.get(0) ?: return
+            cameraManager?.setTorchMode(cameraId, status)
+            if (status) { // Tự tắt sau 1 phút để bảo vệ LED
+                flashHandler.postDelayed({ toggleFlashlight(false) }, 60000)
             }
         } catch (e: Exception) {}
     }
 
     private fun readCurrentTime() {
-        val timeSdf = SimpleDateFormat("h:mm a", Locale.US)
-        val daySdf = SimpleDateFormat("EEEE", Locale.US)
-
-        val time = timeSdf.format(Date())
-        val day = daySdf.format(Date())
-
-        // "Current time is, [nghỉ nhẹ] 10:30 PM. [nghỉ dài] On, [nghỉ nhẹ] Tuesday. Sir."
-        val jarvisSpeech = "Current time is, $time. On, $day. Sir."
-
-        speak(jarvisSpeech)
+        val time = SimpleDateFormat("h:mm a", Locale.US).format(Date())
+        val day = SimpleDateFormat("EEEE", Locale.US).format(Date())
+        speak("It is $time on $day, sir.")
     }
 
+    private fun startOverrideMode() {
+        // Tính toán số phút dựa trên tuần như bản Vosk của ông
+        val startTimestamp = 1766480400000L // 23/12/2025
+        val weeksPassed = ((System.currentTimeMillis() - startTimestamp) / 604800000L).toInt()
+        val minutes = 3 + weeksPassed
+
+        systemTaskHandler.removeCallbacksAndMessages(null)
+        speak("Manual Override initiated. Silence required for $minutes minutes.")
+
+        // Nhắc nhở mỗi phút
+        for (i in 1..minutes) {
+            systemTaskHandler.postDelayed({
+                if (i == minutes) speak("Override complete. Prefrontal Cortex is now in control.")
+                else speak("Override status: ${minutes - i} minutes remaining. Maintain silence.")
+            }, i * 60000L)
+        }
+    }
+
+    private fun startRelaxTimer() {
+        systemTaskHandler.removeCallbacksAndMessages(null)
+        speak("Relax mode activated. 10 minutes starting now.")
+        systemTaskHandler.postDelayed({
+            speak("Time is up! Wake up sir.")
+        }, 600000) // 10 min
+    }
 
     private fun openGoogleAssistant() {
-        try {
-            val intent = Intent(Intent.ACTION_VOICE_COMMAND)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            startActivity(intent)
-        } catch (e: Exception) {}
+        val intent = Intent(Intent.ACTION_VOICE_COMMAND).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+        try { startActivity(intent) } catch (e: Exception) { speak("I cannot open Google right now.") }
     }
 
     private fun performLock() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
-        else performGlobalAction(GLOBAL_ACTION_BACK)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+        } else {
+            speak("Screen locking is not supported on this version.")
+        }
     }
 
-    override fun onPartialResult(hypothesis: String?) {}
-    override fun onError(exception: Exception?) { stopVoskAndReset() }
-    override fun onTimeout() { stopVoskAndReset() }
+    // --- 6. HỖ TRỢ VÀ VÒNG ĐỜI ---
+    private fun speak(text: String, id: String? = null) {
+        val params = Bundle()
+        if (id != null) {
+            params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, id)
+        }
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, id)
+    }
+
+    private fun isValidCommand(text: String): Boolean {
+        val cmd = text.lowercase()
+        // Trả về true nếu chứa bất kỳ từ khóa hợp lệ nào
+        return cmd.contains("flash") || cmd.contains("light") || cmd.contains("flesh") ||
+                cmd.contains("time") || cmd.contains("hour") ||
+                cmd.contains("override") || cmd.contains("over ride") ||
+                cmd.contains("relax") || cmd.contains("stop") ||
+                cmd.contains("cancel") || cmd.contains("lock") || cmd.contains("screen")
+    }
+
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts?.apply {
+                language = Locale.UK
+                setPitch(0.9f)
+                setSpeechRate(1.1f)
+            }
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(CHANNEL_ID, "Jarvis", NotificationManager.IMPORTANCE_LOW)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
+    }
+
+    private fun buildNotification(): Notification {
+        val toggleIntent = PendingIntent.getBroadcast(this, 0, Intent("ACTION_TOGGLE_JARVIS"), PendingIntent.FLAG_IMMUTABLE)
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Jarvis AI")
+            .setContentText(if (isPaused) "Sleeping" else "Active")
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .addAction(android.R.drawable.ic_media_pause, "Toggle", toggleIntent)
+            .setOngoing(true).build()
+    }
+
+    private fun updateNotification() {
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
+    }
+
+    override fun onDestroy() {
+        try { unregisterReceiver(notificationReceiver) } catch (e: Exception) {}
+        stopPorcupine(); stopSherpaListening(); tts?.shutdown(); wakeLock?.release()
+        super.onDestroy()
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
     override fun onInterrupt() {}
 
-    override fun onDestroy() {
-        try { unregisterReceiver(notificationReceiver) } catch(e: Exception) {}
-        systemTaskHandler.removeCallbacksAndMessages(null)
-        stopPorcupine()
-        voskService?.shutdown()
-        globalRecognizer?.close()
-        tts?.stop()
-        tts?.shutdown()
-        wakeLock?.release()
-        super.onDestroy()
+    private fun hasPermissions(vararg permissions: String): Boolean = permissions.all {
+        androidx.core.content.ContextCompat.checkSelfPermission(this, it) == android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 }

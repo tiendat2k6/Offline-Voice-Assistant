@@ -9,23 +9,33 @@ android {
     namespace = "com.example.trolyao"
     compileSdk = 35
 
+    // --- KHỐI LỆNH QUAN TRỌNG ĐỂ SHERPA ĐỌC ĐƯỢC MODEL ---
+    @Suppress("UnstableApiUsage")
+    androidResources {
+        // Dùng .addAll để nạp cả danh sách, không dùng dấu ngoặc đơn kiểu cũ
+        noCompress.addAll(listOf("onnx", "tflite", "p3m"))
+    }
+
+
     defaultConfig {
         applicationId = "com.example.trolyao"
         minSdk = 29
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // ĐOẠN CODE ĐỌC KEY TỪ FILE local.properties
+        // TỐI ƯU CHO REDMI 9T: Chỉ lấy thư viện 64-bit để máy chạy nhẹ nhất
+        ndk {
+            abiFilters.add("arm64-v8a")
+        }
+
+        // ĐỌC KEY PICOVOICE
         val properties = Properties()
         if (project.rootProject.file("local.properties").exists()) {
             properties.load(project.rootProject.file("local.properties").inputStream())
         }
-
-        // 4. Bơm Key vào BuildConfig để code Kotlin dùng được
-        // Lưu ý: Dấu ngoặc kép \" bọc ngoài là bắt buộc
         buildConfigField("String", "SECRET_KEY", "\"${properties.getProperty("PICOVOICE_ACCESS_KEY")}\"")
     }
 
@@ -38,30 +48,38 @@ android {
             )
         }
     }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
 
     buildFeatures {
-        buildConfig = true  // <--- DÒNG NÀY CỰC QUAN TRỌNG
+        buildConfig = true
     }
 }
 
 dependencies {
-
+    // --- ANDROID CORE ---
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+
+    // --- AI ENGINES ---
     implementation("ai.picovoice:porcupine-android:3.0.1")
+    implementation(files("libs/sherpa-onnx-1.12.20.aar"))
+
+    // --- AUDIO UTILS ---
     implementation("androidx.media:media:1.7.0")
+
+    // --- TEST ---
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    implementation("com.alphacephei:vosk-android:0.3.47")
 }

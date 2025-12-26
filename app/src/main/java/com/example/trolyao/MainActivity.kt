@@ -17,6 +17,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
+import android.os.PowerManager
+
 class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,7 +29,7 @@ class MainActivity : AppCompatActivity() {
         layout.gravity = Gravity.CENTER
 
         val btnSetup = Button(this)
-        btnSetup.text = "BƯỚC 1: CẤP QUYỀN ĐẦY ĐỦ"
+        btnSetup.text = "CẤP QUYỀN ĐẦY ĐỦ"
         btnSetup.setOnClickListener { checkAllPermissions() }
 
         val btnStop = Button(this)
@@ -45,23 +47,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkAllPermissions() {
-        // 1. QUYỀN FILE (QUAN TRỌNG NHẤT ĐỂ ĐỌC MODEL VOSK)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Android 11 trở lên: Phải dùng MANAGE_EXTERNAL_STORAGE
-            if (!Environment.isExternalStorageManager()) {
-                Toast.makeText(this, "Hãy cấp quyền 'Truy cập tất cả tệp' để đọc Model", Toast.LENGTH_LONG).show()
-                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                intent.data = Uri.parse("package:$packageName")
-                startActivity(intent)
-                return
-            }
-        } else {
-            // Android 10 trở xuống
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE), 100)
-                return
-            }
-        }
 
         // 2. Quyền Ghi âm
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
