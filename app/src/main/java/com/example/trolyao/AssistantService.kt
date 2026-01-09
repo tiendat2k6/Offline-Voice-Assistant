@@ -12,7 +12,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.camera2.CameraManager
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.*
@@ -31,72 +30,55 @@ import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
 
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+
+
 class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
-    // --- CẤU HÌNH ---
     private val SHERPA_DIR = "sherpa-onnx-en"
     private val accessKey = BuildConfig.SECRET_KEY
-    private val NOTIFICATION_ID = 123
     private val CHANNEL_ID = "Jarvis_Channel"
+    private val NOTIFICATION_ID = 123
 
-    // --- BIẾN HỆ THỐNG ---
+    // AI Components
     private var porcupineManager: PorcupineManager? = null
     private var keywordSpotter: KeywordSpotter? = null
+    private var isSherpaSystemReady = false
 
-    private var isSherpaSystemReady = false // Cờ hiệu bảo vệ
-
+    // Hardware & State
     private var audioRecord: AudioRecord? = null
     private var tts: TextToSpeech? = null
     private var cameraManager: CameraManager? = null
-    private var wakeLock: PowerManager.WakeLock? = null
-
-    private val handler = Handler(Looper.getMainLooper())
-    private val flashHandler = Handler(Looper.getMainLooper())
-    private val systemTaskHandler = Handler(Looper.getMainLooper())
-
     private var isSherpaListening = false
     private var isPaused = false
     private var isFlashOn = false
 
-
-    private val notificationReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == "ACTION_TOGGLE_JARVIS") {
-                isPaused = !isPaused
-                updateNotification()
-                if (isPaused) {
-                    stopPorcupine(); stopSherpaListening(); speak("Jarvis sleeping")
-                } else {
-                    speak("Jarvis online"); startPorcupine()
-                }
-            }
-        }
-    }
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        try {
-            val powerManager = getSystemService(POWER_SERVICE) as PowerManager
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Assistant::WakeLock")
-            wakeLock?.acquire()
+        cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
+        createNotificationChannel()
+        startForeground(NOTIFICATION_ID, buildNotification())
 
-            cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
-            val filter = IntentFilter("ACTION_TOGGLE_JARVIS")
-            ContextCompat.registerReceiver(this, notificationReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        // Bước 1: Khởi tạo TTS trước
+        tts = TextToSpeech(this, this)
 
-            createNotificationChannel()
-            startForeground(NOTIFICATION_ID, buildNotification())
-
-            // Bước 1: Chỉ kích hoạt TTS, chưa đụng đến Mic hay Model
-            tts = TextToSpeech(this, this)
-        } catch (e: Exception) { Log.e("Jarvis", "Error: ${e.message}") }
+        val filter = IntentFilter("ACTION_TOGGLE_JARVIS")
+        ContextCompat.registerReceiver(this, notificationReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
-    private fun initSherpaReady() {
+    // --- GIAI ĐOẠN 1: NẠP NÃO (CHỈ CHẠY 1 LẦN) ---
+    private fun initSherpaASR() {
         if (keywordSpotter != null) return
         Thread {
             try {
-                Log.d("JARVIS_DEBUG", ">> Stage 1: Loading 20M Model...")
+                Log.d("JARVIS_DEBUG", ">> Đang nạp Model KWS (Keyword Spotting)...")
+
+                // 1. Dùng KeywordSpotterConfig
                 val config = KeywordSpotterConfig(
                     featConfig = FeatureConfig(sampleRate = 16000, featureDim = 80),
                     modelConfig = OnlineModelConfig(
@@ -106,259 +88,184 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                             joiner = "$SHERPA_DIR/joiner.onnx",
                         ),
                         tokens = "$SHERPA_DIR/tokens.txt",
-                        modelType = "transducer",
-                        numThreads = 1, // Snapdragon 662 gánh 1 thread là ổn định nhất
+                        modelType = "zipformer",
+                        numThreads = 1,
                         debug = false
                     ),
-                    keywordsFile = "$SHERPA_DIR/keywords.txt"
+                    keywordsFile = "$SHERPA_DIR/keywords.txt",
+                    keywordsScore = 0.1f
                 )
 
-                Log.d("JARVIS_DEBUG", ">> BẮT ĐẦU nạp Encoder vào RAM...")
-
-                keywordSpotter = KeywordSpotter(assets, config) // Dòng này ngốn RAM nhất
-
-                Log.d("JARVIS_DEBUG", ">> ĐÃ NẠP XONG Encoder!") // Nếu hiện dòng này là an toàn
+                // 2. PHẢI khởi tạo bằng KeywordSpotter
+                keywordSpotter = KeywordSpotter(assets, config)
 
                 isSherpaSystemReady = true
-                Log.d("JARVIS_DEBUG", ">> Stage 2: 20M Model Ready!")
-
-                // Bước 3: Model đã nằm yên trong RAM, giờ mới bật Mic của Porcupine
+                Log.e("JARVIS_DEBUG", ">> Hệ thống Keyword Spotter đã sẵn sàng!")
                 handler.post {
-                    speak("Systems online. Jarvis is ready, sir.")
+                    speak("Systems online.")
                     initPorcupine()
                 }
             } catch (e: Exception) {
-                Log.e("JARVIS_DEBUG", "KWS Load Error: ${e.message}")
+                Log.e("JARVIS_DEBUG", "Lỗi nạp Model KWS: ${e.message}")
+                e.printStackTrace()
             }
         }.start()
     }
-
-
 
     private fun initPorcupine() {
         try {
             porcupineManager = PorcupineManager.Builder()
                 .setAccessKey(accessKey)
-                .setKeywords(arrayOf(Porcupine.BuiltInKeyword.JARVIS, Porcupine.BuiltInKeyword.TERMINATOR))
-                .setSensitivities(floatArrayOf(0.75f, 0.75f))
+                .setKeywords(arrayOf(Porcupine.BuiltInKeyword.JARVIS))
+                .setSensitivities(floatArrayOf(0.7f))
                 .build(applicationContext) { keywordIndex ->
-                    if (isPaused) return@build
                     if (keywordIndex == 0) acknowledgeAndListen()
-                    else if (keywordIndex == 1) performLock()
                 }
-            startPorcupine()
-        } catch (e: Exception) { Log.e("Jarvis", "Porcupine Error: ${e.message}") }
+            porcupineManager?.start()
+        } catch (e: Exception) { Log.e("JARVIS_DEBUG", "Porcupine Error: ${e.message}") }
     }
-
-    private fun startPorcupine() { if (!isSherpaListening && !isPaused) porcupineManager?.start() }
-    private fun stopPorcupine() {
-        try {
-            porcupineManager?.stop()
-            // Xóa sạch thực thể để ép nó đóng hoàn toàn AudioRecord bên trong
-            porcupineManager?.delete()
-            porcupineManager = null
-            Log.e("JARVIS_DEBUG", "Đã XÓA Porcupine để giải phóng Mic!")
-        } catch (e: Exception) {
-            Log.e("JARVIS_DEBUG", "Không thể diệt Porcupine: ${e.message}")
-        }
-    }
-
 
     private fun acknowledgeAndListen() {
-        stopPorcupine()
-        tts?.setSpeechRate(1.2f)
+        // Tắt Porcupine để giải phóng Mic cho Sherpa
+        porcupineManager?.stop()
+        porcupineManager?.delete()
+        porcupineManager = null
+
         speak("On your command.", "READY")
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {}
-            override fun onDone(utteranceId: String?) {
-                if (utteranceId == "READY") {
-                    handler.postDelayed({ startSherpaListening() }, 2000)
-                }
+            override fun onStart(p0: String?) {}
+            override fun onDone(id: String?) {
+                if (id == "READY") handler.post { startSherpaLoop() }
             }
-            override fun onError(utteranceId: String?) { handler.post { startSherpaListening() } }
+            override fun onError(p0: String?) { handler.post { startSherpaLoop() } }
         })
     }
 
+    // --- GIAI ĐOẠN 2: NGHE LỆNH (VÒNG LẶP CHIẾN THUẬT) ---
     @SuppressLint("MissingPermission")
-    private fun startSherpaListening() {
-        if (keywordSpotter == null || !isSherpaSystemReady || isPaused) {
-            if (!isPaused) startPorcupine()
-            return
-        }
-
+    private fun startSherpaLoop() {
+        val spotter = keywordSpotter ?: return
         isSherpaListening = true
+        val stream = spotter.createStream()
+
+        // --- BƯỚC 1: CHUẨN BỊ FILE GHI ÂM ---
+        val debugFile = File(getExternalFilesDir(null), "jarvis_audio_debug.pcm")
+        var fos: FileOutputStream? = null
 
         try {
-            val minBufferSize = AudioRecord.getMinBufferSize(16000,
-                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-
-            // ÉP BUFFER LỚN HƠN:
-            // Nếu minBufferSize nhỏ hơn 8000, ta lấy 8000. Nếu nó lớn hơn, ta lấy nó.
-            // 8000 bytes tương đương với khoảng 250ms âm thanh - mức an toàn "vàng" cho máy yếu.
-            val optimizedBufferSize = if (minBufferSize < 8000) 8000 else minBufferSize
-
-            audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                16000,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                optimizedBufferSize
-            )
-
-            // KIỂM TRA TRẠNG THÁI: Nếu không khởi tạo được thì dừng luôn để tránh crash
-            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                Log.e("JARVIS_DEBUG", "AudioRecord không thể khởi tạo!")
-                return
-            }
-
+            fos = FileOutputStream(debugFile)
+            val bufferSize = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+            audioRecord = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize.coerceAtLeast(8000))
             audioRecord?.startRecording()
-            Log.d("JARVIS_DEBUG", "Mic started với buffer: $optimizedBufferSize")
-
+            Log.d("JARVIS_DEBUG", "Đang ghi âm debug vào: ${debugFile.absolutePath}")
         } catch (e: Exception) {
-            Log.e("JARVIS_DEBUG", "Mic Error: ${e.message}")
+            Log.e("JARVIS_DEBUG", "Không thể khởi tạo ghi âm: ${e.message}")
             return
         }
 
         Thread {
-            val stream = keywordSpotter!!.createStream()
-            val buffer = ShortArray(1024)
+            val buffer = ShortArray(1600)
+            // ByteBuffer dùng để chuyển Short sang Byte để ghi vào file
+            val byteBuffer = ByteBuffer.allocate(3200).order(ByteOrder.LITTLE_ENDIAN)
+
             try {
                 while (isSherpaListening) {
                     val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
-                    Log.d("JARVIS_DEBUG", "Read count: $read, First 5 samples: ${buffer.take(5)}")
-
                     if (read > 0) {
-                        // debug:
-                        // TÍNH TOÁN NĂNG LƯỢNG (RMS)
-                        var sum = 0.0
+                        // --- BƯỚC 2: GHI DỮ LIỆU VÀO FILE ---
+                        byteBuffer.clear()
                         for (i in 0 until read) {
-                            sum += buffer[i] * buffer[i]
+                            byteBuffer.putShort(buffer[i])
                         }
-                        val rms = Math.sqrt(sum / read)
+                        fos.write(byteBuffer.array(), 0, read * 2)
 
-                        // Log năng lượng này ra. Nếu nó < 10 khi ông đang nói -> Mic bị "câm"
-                        if (rms < 10) {
-                            Log.e("JARVIS_DEBUG", "CẢNH BÁO: Mic im lặng hoàn toàn (RMS: $rms). Kiểm tra quyền hoặc Porcupine!")
-                        } else {
-                            // Log.d("JARVIS_DEBUG", "Mic OK, năng lượng: $rms")
+                        // Kiểm tra cường độ âm thanh
+                        var maxVol = 0
+                        for (i in 0 until read) {
+                            val absVal = Math.abs(buffer[i].toInt())
+                            if (absVal > maxVol) maxVol = absVal
                         }
+                        if (maxVol > 1000) Log.d("JARVIS_DEBUG", "Raw Mic: $maxVol")
 
-                        val floatBuffer = FloatArray(read) { (buffer[it].toFloat() / 32768.0f) }
+                        // Xử lý AI
+                        val floatBuffer = FloatArray(read) {
+                            ((buffer[it] / 32768.0f) * 1.0f).coerceIn(-1.0f, 1.0f)
+                        }
                         stream.acceptWaveform(floatBuffer, 16000)
 
-                        // GIẢI MÃ VÀ KIỂM TRA TỪ KHÓA LIÊN TỤC
-                        while (keywordSpotter!!.isReady(stream)) {
-                            keywordSpotter!!.decode(stream)
+                        while (spotter.isReady(stream)) {
+                            spotter.decode(stream)
+                        }
 
-                            // LỖI FIX TẠI ĐÂY: Lấy kết quả ngay trong lúc decode
-                            val result = keywordSpotter!!.getResult(stream)
-                            if (result.keyword.isNotEmpty()) {
-                                Log.e("JARVIS_DEBUG", ">> SPOTTED: ${result.keyword}")
+                        val result = spotter.getResult(stream)
+                        val raw: String = result.keyword ?: ""
 
-                                // LỖI FIX TẠI ĐÂY: Truyền nguyên bản (Chữ HOA) để Regex xử lý đúng
-                                handler.post { processCommand(result.keyword) }
+                        // 1. SOI TOKEN LẺ (Đây là thứ AI thực sự nghe thấy)
+                        if (result.tokens.isNotEmpty()) {
+                            val heard = result.tokens.joinToString("-")
+                            Log.d("JARVIS_SCORES", "AI ĐANG NGHE THẤY: [$heard]")
+                        }
 
-                                isSherpaListening = false // Thoát vòng lặp để xử lý lệnh
+                        if (raw.isNotEmpty()) {
+                            val asciiCode = raw[0].code
+                            Log.e("JARVIS_BINGO", "GOC: '$raw' | ASCII: $asciiCode")
+
+                            var cleanCmd = raw.replace("▁", "").replace("_", "").replace(" ", "")
+                            val finalCmd = cleanCmd.trim().uppercase()
+
+                            if (finalCmd.isNotEmpty()) {
+                                Log.e("JARVIS_BINGO", ">> LENH THUC SU: $finalCmd")
+                                handler.post { processCommand(finalCmd) }
+                                isSherpaListening = false
                                 break
                             }
                         }
-                    } else if (read < 0) break
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e("JARVIS_DEBUG", "Lỗi trong luồng xử lý: ${e.message}")
             } finally {
+                // --- BƯỚC 3: ĐÓNG FILE ---
+                try { fos.close() } catch (e: Exception) {}
                 stream.release()
-                handler.post { stopSherpaListening() }
+                handler.post { stopSherpaAndResumePorcupine() }
             }
         }.start()
 
-        // Sau 10s không nghe thấy gì thì tự tắt
-        handler.postDelayed({ if (isSherpaListening) stopSherpaListening() }, 10000)
+        handler.postDelayed({ if (isSherpaListening) isSherpaListening = false }, 20000)
     }
 
-
-    private fun stopSherpaListening() {
+    private fun stopSherpaAndResumePorcupine() {
         isSherpaListening = false
-        try { audioRecord?.stop(); audioRecord?.release(); audioRecord = null } catch (e: Exception) {}
-        handler.postDelayed({ startPorcupine() }, 300)
+        try {
+            audioRecord?.stop()
+            audioRecord?.release()
+            audioRecord = null
+        } catch (e: Exception) {}
+        initPorcupine() // Quay lại nghe từ "Jarvis"
     }
 
     private fun processCommand(cmd: String) {
-        // 1. Log nguyên bản để soi lỗi
-        Log.e("JARVIS_DEBUG", "RAW CMD FROM AI: '$cmd'")
-
-        // 2. Dọn dẹp cực sạch: Viết hoa -> Xóa mọi thứ không phải A-Z
-        val normalizedCmd = cmd.uppercase().replace(Regex("[^A-Z]"), "")
-
-        Log.d("JARVIS_DEBUG", "NORMALIZED: '$normalizedCmd'")
-
-        if (normalizedCmd.isEmpty()) return
-
         when {
-            normalizedCmd.contains("LIGHT") -> {
+            cmd.contains("LIGHT") -> {
                 isFlashOn = !isFlashOn
                 toggleFlashlight(isFlashOn)
                 speak(if (isFlashOn) "Flashlight on" else "Flashlight off")
             }
-            normalizedCmd.contains("RELAX") -> {
-                speak("Initiating relax protocol")
-                startRelaxTimer()
+            cmd.contains("TIME") -> {
+                val time = SimpleDateFormat("h:mm a", Locale.US).format(Date())
+                speak("It is $time, sir.")
             }
-            normalizedCmd.contains("TIME") -> readCurrentTime()
-            (normalizedCmd.contains("STILL") && normalizedCmd.contains("THREE")) -> startOverrideMode()
-            normalizedCmd.contains("OPEN") -> openGoogleAssistant()
-            normalizedCmd.contains("STOP") -> {
-                systemTaskHandler.removeCallbacksAndMessages(null)
-                tts?.stop()
-                speak("All protocols terminated, sir.")
-            }
-            else -> {
-                Log.d("JARVIS_DEBUG", "Không khớp lệnh nào: $normalizedCmd")
-            }
+            cmd.contains("STOP") -> speak("Terminating processes.")
         }
     }
 
-    // --- CÁC TÍNH NĂNG CÓ SẴN (GIỮ NGUYÊN) ---
+    // --- UTILS ---
     private fun toggleFlashlight(status: Boolean) {
         try {
             val cameraId = cameraManager?.cameraIdList?.get(0) ?: return
             cameraManager?.setTorchMode(cameraId, status)
-            if (status) flashHandler.postDelayed({ toggleFlashlight(false) }, 60000)
         } catch (e: Exception) {}
-    }
-
-    private fun readCurrentTime() {
-        val time = SimpleDateFormat("h:mm a", Locale.US).format(Date())
-        val day = SimpleDateFormat("EEEE", Locale.US).format(Date())
-        speak("It is $time on $day, sir.")
-    }
-
-    private fun startOverrideMode() {
-        val startTimestamp = 1766480400000L
-        val weeksPassed = ((System.currentTimeMillis() - startTimestamp) / 604800000L).toInt()
-        val minutes = 3 + weeksPassed
-        systemTaskHandler.removeCallbacksAndMessages(null)
-        speak("Manual Override initiated. Silence required for $minutes minutes.")
-        for (i in 1..minutes) {
-            systemTaskHandler.postDelayed({
-                if (i == minutes) speak("Override complete. Prefrontal Cortex is now in control.")
-                else speak("Override status: ${minutes - i} minutes remaining. Maintain silence.")
-            }, i * 60000L)
-        }
-    }
-
-    private fun startRelaxTimer() {
-        systemTaskHandler.removeCallbacksAndMessages(null)
-        speak("Relax mode activated. 10 minutes starting now.")
-        systemTaskHandler.postDelayed({ speak("Time is up! Wake up sir.") }, 600000)
-    }
-
-    private fun openGoogleAssistant() {
-        val intent = Intent(Intent.ACTION_VOICE_COMMAND).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
-        try { startActivity(intent) } catch (e: Exception) { speak("I cannot open Google right now.") }
-    }
-
-    private fun performLock() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
-        else speak("Screen locking is not supported on this version.")
     }
 
     private fun speak(text: String, id: String? = null) {
@@ -367,18 +274,22 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, id)
     }
 
-
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            tts?.apply { language = Locale.UK; setPitch(0.9f); setSpeechRate(1.1f) }
-
-            // KHÔNG nạp ngay. Đợi 10 giây để MIUI "lơi lỏng" cảnh giác rồi mới nạp Model 20M
-            handler.postDelayed({
-                initSherpaReady()
-            }, 5000)
+            tts?.language = Locale.UK
+            handler.postDelayed({ initSherpaASR() }, 1000)
         }
     }
 
+    private val notificationReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "ACTION_TOGGLE_JARVIS") {
+                isPaused = !isPaused
+                if (isPaused) { isSherpaListening = false; speak("Jarvis sleeping") }
+                else { speak("Jarvis awake"); initPorcupine() }
+            }
+        }
+    }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -388,20 +299,16 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     }
 
     private fun buildNotification(): Notification {
-        val toggleIntent = PendingIntent.getBroadcast(this, 0, Intent("ACTION_TOGGLE_JARVIS"), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Jarvis AI")
-            .setContentText(if (isPaused) "Sleeping" else "Active")
+            .setContentTitle("Jarvis Active")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .addAction(android.R.drawable.ic_media_pause, "Toggle", toggleIntent)
             .setOngoing(true).build()
     }
 
-    private fun updateNotification() { getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification()) }
-
     override fun onDestroy() {
-        try { unregisterReceiver(notificationReceiver) } catch (e: Exception) {}
-        stopPorcupine(); stopSherpaListening(); tts?.shutdown(); wakeLock?.release()
+        isSherpaListening = false
+        porcupineManager?.stop(); porcupineManager?.delete()
+        tts?.shutdown()
         super.onDestroy()
     }
 
