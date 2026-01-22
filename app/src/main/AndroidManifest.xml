@@ -51,6 +51,9 @@
         <intent>
             <action android:name="android.intent.action.VOICE_COMMAND" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.ASSIST" />
+        </intent>
     </queries>
 
 </manifest>
