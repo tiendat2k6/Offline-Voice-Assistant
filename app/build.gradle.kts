@@ -70,9 +70,9 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
 
     // --- PICOVOICE ENGINES (BỘ NÃO MỚI) ---
-    // Phiên bản 3.0.0 ổn định nhất cho Android
-    implementation("ai.picovoice:porcupine-android:3.0.0")
-    implementation("ai.picovoice:rhino-android:3.0.0")
+    // CẬP NHẬT LÊN 4.0.0 ĐỂ KHỚP VỚI FILE .RHN
+    implementation("ai.picovoice:porcupine-android:4.0.0")
+    implementation("ai.picovoice:rhino-android:4.0.1")
 
     // --- AUDIO & UTILS ---
     implementation("androidx.media:media:1.7.0")
