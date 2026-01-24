@@ -18,6 +18,7 @@ import android.view.accessibility.AccessibilityEvent
 import androidx.core.app.NotificationCompat
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.core.content.ContextCompat
 
 class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
@@ -43,6 +44,9 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
     private val flashHandler = Handler(Looper.getMainLooper())
 
+    private val PC_COMMAND_URL = "https://juanita-tragicomic-nonethereally.ngrok-free.dev/lockdown" // Domain Ngrok của bạn
+    private val AUTH_TOKEN = "Jarvis-K20-FPT-2026-ngocminh-tiendat" // Mã token bí mật
+
     // --- 1. TÍNH NĂNG ĐIỀU KHIỂN QUA THÔNG BÁO ---
     private val notificationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -53,7 +57,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                     speak("Jarvis power save mode initiated.")
                     Log.d("JARVIS_DEBUG", "Hệ thống tạm dừng (Sleep)")
                 } else {
-                    speak("Jarvis online and standing by.")
+                    speak("Jarvis online.")
                     Log.d("JARVIS_DEBUG", "Hệ thống hoạt động trở lại")
                 }
             }
@@ -62,25 +66,29 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        // --- 2. GIỮ CPU LUÔN CHẠY (WAKELOCK) ---
+
+        // 1. PHẢI GỌI HÀM NÀY ĐẦU TIÊN ĐỂ MỞ CỔNG THÔNG BÁO
+        createNotificationChannel()
+
+        // 2. BIẾN JARVIS THÀNH FOREGROUND SERVICE ĐỂ KHÔNG BỊ DIỆT
+        // Điều này sẽ hiện cái thông báo "Jarvis is listening..." lên ngay lập tức
+        startForeground(NOTIFICATION_ID, buildNotification())
+
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Jarvis::WakeLock")
         wakeLock?.acquire()
 
         cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
-
-        // Đăng ký nhận sự kiện từ nút bấm trên Notification
-        // Chỉnh sửa lại đoạn đăng ký Receiver trong onServiceConnected
         val filter = IntentFilter("ACTION_TOGGLE_JARVIS")
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13 trở lên bắt buộc phải có cờ RECEIVER_NOT_EXPORTED để bảo mật nội bộ
-            registerReceiver(notificationReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            Log.d("JARVIS_DEBUG", "Đã đăng ký Receiver với cờ NOT_EXPORTED (Android 13+)")
-        }
+        ContextCompat.registerReceiver(
+            this,
+            notificationReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
 
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification())
+        Log.d("JARVIS_DEBUG", "Hệ thống đã trình diện và hiện thông báo thành công.")
         tts = TextToSpeech(this, this)
     }
 
@@ -88,7 +96,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         if (status == TextToSpeech.SUCCESS) {
             tts?.language = Locale.UK // Giọng Anh cho nó chuyên nghiệp
             tts?.setPitch(0.92f)
-            tts?.setSpeechRate(1.3f)
+            tts?.setSpeechRate(1.0f)
             initPicovoice()
         }
     }
@@ -163,9 +171,9 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         tts?.setSpeechRate(1.3f)
         speak("On your command.")
         handler.postDelayed({
-            tts?.setSpeechRate(0.85f) // Trả lại tốc độ chuẩn
+            tts?.setSpeechRate(1.0f) // Trả lại tốc độ chuẩn
             useRhino = true
-        }, 1500)
+        }, 1000)
     }
 
     private fun processRhinoInference(inference: RhinoInference) {
@@ -185,7 +193,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
                 "override" -> startOverrideMode()
 
-                "lockdown" -> performLock()
+                "lockdown" -> triggerPcBlackout()
 
                 // SỬA TẠI ĐÂY: Phải là "trigger_assistant" mới khớp với YAML của ông
                 "trigger_assistant" -> {
@@ -211,6 +219,47 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             Log.w("JARVIS_DEBUG", "Rhino không hiểu lệnh. Expression không khớp.")
             speak("Input unrecognized. Awaiting re-entry, sir.")
         }
+    }
+
+    private fun triggerPcBlackout() {
+        // Thông báo trạng thái qua TTS
+        // speak("Protocol Blackout initiated... Target neutralized, sir.")
+
+        speak("Dopamine receptors stabilizing... Neuro-reset in progress. ... You are training your neural weights right now... Sir.")
+
+        // --- HẸN GIỜ 10 PHÚT (600.000 ms) ---
+        handler.postDelayed({
+            // Câu thoại sau khi đã "reset" xong dopamine
+            speak("Neuro-stabilization complete. Your mind is now optimized, sir.")
+        }, 600000L)
+
+        // Chạy trong luồng phụ để tránh treo app trên Redmi 9T
+        Thread {
+            try {
+                val url = java.net.URL(PC_COMMAND_URL)
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+
+                // Gắn token bảo mật để tránh bot quấy phá
+                connection.setRequestProperty("x-token", AUTH_TOKEN)
+
+                // DÒNG QUAN TRỌNG: Bỏ qua trang cảnh báo của Ngrok để lệnh chạy thẳng
+                connection.setRequestProperty("ngrok-skip-browser-warning", "true")
+
+                connection.connectTimeout = 5000
+
+                val code = connection.responseCode
+                if (code == 200) {
+                    Log.d("JARVIS_DEBUG", "Lệnh đã được thực thi tại Vinhomes Grand Park.")
+                } else {
+                    handler.post { speak("Access denied. Link error $code.") }
+                }
+                connection.disconnect()
+            } catch (e: Exception) {
+                Log.e("JARVIS_DEBUG", "Lỗi: ${e.message}")
+                handler.post { speak("Target unreachable. Check your network, sir.") }
+            }
+        }.start()
     }
 
     // --- 4. TÍNH NĂNG OVERRIDE (ĐẾM TUẦN PHẠT) ---
@@ -282,8 +331,21 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     }
 
     private fun buildNotification(): Notification {
-        val toggleIntent = PendingIntent.getBroadcast(this, 0, Intent("ACTION_TOGGLE_JARVIS"), PendingIntent.FLAG_IMMUTABLE)
+        val intent = Intent("ACTION_TOGGLE_JARVIS").apply {
+            // Thêm dòng này để chỉ đích danh app mình nhận, tăng tính bảo mật
+            setPackage(packageName)
+        }
+
+        val toggleIntent = PendingIntent.getBroadcast(
+            this,
+            0,
+            intent,
+            // FLAG_IMMUTABLE là bắt buộc trên Android hiện đại
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val statusText = if (isPaused) "Jarvis is sleeping" else "Jarvis is listening..."
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Jarvis Assistant")
             .setContentText(statusText)
