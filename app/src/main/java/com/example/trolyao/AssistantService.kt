@@ -5,20 +5,42 @@ import ai.picovoice.rhino.Rhino
 import ai.picovoice.rhino.RhinoInference
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
-import android.app.*
-import android.content.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.hardware.camera2.CameraManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
-import android.os.*
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.PowerManager
 import android.speech.tts.TextToSpeech
 import android.util.Log
+import android.view.View
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import androidx.core.app.NotificationCompat
-import java.text.SimpleDateFormat
-import java.util.*
 import androidx.core.content.ContextCompat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+import android.graphics.Color
+import android.graphics.PixelFormat
+import android.view.KeyEvent
+
+import android.view.Gravity
+import android.widget.FrameLayout
+import android.widget.TextView
+
 
 class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
@@ -46,6 +68,10 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
     private val PC_COMMAND_URL = "https://juanita-tragicomic-nonethereally.ngrok-free.dev/lockdown" // Domain Ngrok của bạn
     private val AUTH_TOKEN = "Jarvis-K20-FPT-2026-ngocminh-tiendat" // Mã token bí mật
+
+    private var windowManager: WindowManager? = null
+    private var blueScreenView: FrameLayout? = null
+    private var isLocked = false
 
     // --- 1. TÍNH NĂNG ĐIỀU KHIỂN QUA THÔNG BÁO ---
     private val notificationReceiver = object : BroadcastReceiver() {
@@ -221,17 +247,93 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         }
     }
 
+    // --- Black Out trên redmi 9t: VẼ ĐÈ MÀN HÌNH ---
+    fun triggerPhoneBlackout(enable: Boolean) {
+        isLocked = enable
+        if (enable) {
+            if (blueScreenView != null) return
+
+            windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+
+            blueScreenView = FrameLayout(this).apply {
+                setBackgroundColor(Color.parseColor("#0078D7")) // Xanh Windows
+                isFocusable = true
+                isFocusableInTouchMode = true
+
+                // FIX LỖI 266: Thêm performClick để Android không báo lỗi vàng nữa
+                setOnTouchListener { v, _ ->
+                    v.performClick()
+                    true // Nuốt sạch cú chạm/vuốt
+                }
+            }
+
+            val textView = TextView(this).apply {
+                text = "NM!"
+                setTextColor(Color.WHITE)
+                textSize = 70f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+            }
+            blueScreenView?.addView(textView, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_FULLSCREEN or
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or // Đè Lockscreen
+                        WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD, // or // Khóa phím
+//                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                PixelFormat.TRANSLUCENT
+            )
+
+            // Tràn qua tai thỏ Redmi 9T
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+
+            windowManager?.addView(blueScreenView, params)
+        } else {
+            blueScreenView?.let { windowManager?.removeView(it); blueScreenView = null }
+
+            performLock()  // KHÓA MÁY: Ép Android quay về Lockscreen
+        }
+    }
+
+    // chặn home, back, recent. Nhưng vẫn cho phép sử dụng âm lượng
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (isLocked) {
+            // Nếu là phím tăng/giảm âm lượng thì cho phép hệ thống xử lý
+            if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
+                event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                return false // Trả về false để Android tự chỉnh volume
+            }
+
+            // Còn lại (Back, Recent, v.v.) thì nuốt sạch
+            return true
+        }
+        return super.onKeyEvent(event)
+    }
+
     private fun triggerPcBlackout() {
         // Thông báo trạng thái qua TTS
         // speak("Protocol Blackout initiated... Target neutralized, sir.")
 
-        speak("Dopamine receptors stabilizing... Neuro-reset in progress. ... You are training your neural weights right now... Sir.")
+        speak("Dopamine receptors stabilizing... Neuro-reset in progress. ... You are training your neural weights right now, Sir.")
+
+        // Kích hoạt màn hình xanh trên điện thoại ngay lập tức
+        triggerPhoneBlackout(true)
 
         // --- HẸN GIỜ 10 PHÚT (600.000 ms) ---
         handler.postDelayed({
-            // Câu thoại sau khi đã "reset" xong dopamine
             speak("Neuro-stabilization complete. Your mind is now optimized, sir.")
-        }, 600000L)
+
+            // Giải phóng điện thoại sau 10 phút
+            triggerPhoneBlackout(false)
+
+        }, 10000L)
+
 
         // Chạy trong luồng phụ để tránh treo app trên Redmi 9T
         Thread {
