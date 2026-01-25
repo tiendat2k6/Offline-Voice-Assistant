@@ -256,7 +256,8 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
             blueScreenView = FrameLayout(this).apply {
-                setBackgroundColor(Color.parseColor("#0078D7")) // Xanh Windows
+                // Sắc xanh Neon Cyan (#62FCF1): Hiện đại, lạnh lùng và tương lai
+                setBackgroundColor(Color.parseColor("#62FCF1"))
                 isFocusable = true
                 isFocusableInTouchMode = true
 
@@ -270,7 +271,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             val textView = TextView(this).apply {
                 text = "NM!"
                 setTextColor(Color.WHITE)
-                textSize = 70f
+                textSize = 85f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
             }
@@ -332,7 +333,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             // Giải phóng điện thoại sau 10 phút
             triggerPhoneBlackout(false)
 
-        }, 10000L)
+        }, 600000L)
 
 
         // Chạy trong luồng phụ để tránh treo app trên Redmi 9T
@@ -381,25 +382,20 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     // --- 5. TÍNH NĂNG RELAX (HẸN GIỜ 10 PHÚT) ---
     private fun startRelaxTimer() {
         systemTaskHandler.removeCallbacksAndMessages(null)
-        speak("Relax mode activated. I will wake you up in 10 minutes.")
+        speak("Relaxation protocol initiated. Enjoy your downtime, Sir.")
 
-        // Hẹn giờ 10 phút
+        // Hẹn giờ 10 phút (600,000 ms)
         systemTaskHandler.postDelayed({
             Log.d("Assistant", "Hết 10 phút Relax!")
 
-            // Câu 1
-            speak("Time is up! Relax mode over.")
+            // Câu 1: Trạng thái hệ thống
+            speak("Synaptic noise eliminated ... Neural pathways synchronized.")
 
-            // Đợi 4s sau mới nói câu 2 (Không chặn luồng)
+            // Đợi 3 giây để câu đầu kết thúc rồi mới nói câu tiếp theo
             systemTaskHandler.postDelayed({
-                speak("Time is up!")
-
-                // Đợi thêm 3s nữa nói câu 3
-                systemTaskHandler.postDelayed({
-                    speak("Wake up!")
-                }, 3000)
-
-            }, 4000)
+                // Câu 2: Thông báo sẵn sàng
+                speak("Your cognitive engine is now ready, Sir.")
+            }, 7000)
 
         }, 600000)
     }
