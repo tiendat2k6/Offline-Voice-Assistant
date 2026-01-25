@@ -132,13 +132,13 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             porcupine = Porcupine.Builder()
                 .setAccessKey(accessKey)
                 .setKeywords(arrayOf(Porcupine.BuiltInKeyword.JARVIS, Porcupine.BuiltInKeyword.TERMINATOR))
-                .setSensitivities(floatArrayOf(0.8f, 0.8f))
+                .setSensitivities(floatArrayOf(0.5f, 0.5f))
                 .build(applicationContext)
 
             rhino = Rhino.Builder()
                 .setAccessKey(accessKey)
                 .setContextPath(RHINO_MODEL_FILE)
-                .setSensitivity(0.7f)
+                .setSensitivity(0.5f)
                 .build(applicationContext)
 
             Log.d("JARVIS_DEBUG", "--- DANH SÁCH LỆNH ÔNG PHẢI NÓI ĐÚNG ---")
@@ -156,17 +156,36 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     private fun startAudioLoop() {
         isRunning = true
         val frameLength = porcupine?.frameLength ?: 512
+
+        // ĐỔI SANG MIC: Để tránh việc hệ thống tự xử lý chồng chéo lên AudioFX của ông
         audioRecord = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000,
+            MediaRecorder.AudioSource.MIC, 16000,
             AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, 2048
         )
 
+        // 1. Kích hoạt AudioFX NGAY SAU KHI khởi tạo AudioRecord
+        val sessionId = audioRecord?.audioSessionId ?: 0
+        if (sessionId != 0) {
+            // Tự động kiểm soát mức tăng (AGC): Quan trọng để nghe tiếng THÌ THẦM/Ở XA
+            if (android.media.audiofx.AutomaticGainControl.isAvailable()) {
+                android.media.audiofx.AutomaticGainControl.create(sessionId).apply {
+                    enabled = true
+                }
+            }
+            // Khử nhiễu (NS): Lọc bớt tiếng "rì rầm" của bạn cùng phòng
+            if (android.media.audiofx.NoiseSuppressor.isAvailable()) {
+                android.media.audiofx.NoiseSuppressor.create(sessionId).apply {
+                    enabled = true
+                }
+            }
+        }
+
         Thread {
             val audioBuffer = ShortArray(frameLength)
-            audioRecord?.startRecording()
+            audioRecord?.startRecording() // Bắt đầu thu âm sau khi đã setup xong FX
 
             while (isRunning) {
-                if (isPaused) { // Nếu đang Pause thì skip việc xử lý
+                if (isPaused) {
                     Thread.sleep(100)
                     continue
                 }
@@ -191,7 +210,6 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             }
         }.start()
     }
-
     private fun acknowledgeAndSwitch() {
         // --- 3. TĂNG TỐC ĐỘ NÓI KHI CHÀO (GIỐNG CODE CŨ) ---
         tts?.setSpeechRate(1.3f)
@@ -395,7 +413,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             systemTaskHandler.postDelayed({
                 // Câu 2: Thông báo sẵn sàng
                 speak("Your cognitive engine is now ready, Sir.")
-            }, 7000)
+            }, 8000)
 
         }, 600000)
     }
