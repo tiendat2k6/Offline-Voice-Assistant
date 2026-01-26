@@ -83,7 +83,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                     speak("Jarvis power save mode initiated.")
                     Log.d("JARVIS_DEBUG", "Hệ thống tạm dừng (Sleep)")
                 } else {
-                    speak("Jarvis online.")
+                    speak("System online, Sir.")
                     Log.d("JARVIS_DEBUG", "Hệ thống hoạt động trở lại")
                 }
             }
@@ -132,13 +132,13 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             porcupine = Porcupine.Builder()
                 .setAccessKey(accessKey)
                 .setKeywords(arrayOf(Porcupine.BuiltInKeyword.JARVIS, Porcupine.BuiltInKeyword.TERMINATOR))
-                .setSensitivities(floatArrayOf(0.5f, 0.5f))
+                .setSensitivities(floatArrayOf(0.7f, 0.7f))
                 .build(applicationContext)
 
             rhino = Rhino.Builder()
                 .setAccessKey(accessKey)
                 .setContextPath(RHINO_MODEL_FILE)
-                .setSensitivity(0.5f)
+                .setSensitivity(0.9f)
                 .build(applicationContext)
 
             Log.d("JARVIS_DEBUG", "--- DANH SÁCH LỆNH ÔNG PHẢI NÓI ĐÚNG ---")
@@ -157,32 +157,31 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         isRunning = true
         val frameLength = porcupine?.frameLength ?: 512
 
-        // ĐỔI SANG MIC: Để tránh việc hệ thống tự xử lý chồng chéo lên AudioFX của ông
         audioRecord = AudioRecord(
-            MediaRecorder.AudioSource.MIC, 16000,
+            MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000,
             AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, 2048
         )
 
         // 1. Kích hoạt AudioFX NGAY SAU KHI khởi tạo AudioRecord
         val sessionId = audioRecord?.audioSessionId ?: 0
-        if (sessionId != 0) {
-            // Tự động kiểm soát mức tăng (AGC): Quan trọng để nghe tiếng THÌ THẦM/Ở XA
-            if (android.media.audiofx.AutomaticGainControl.isAvailable()) {
-                android.media.audiofx.AutomaticGainControl.create(sessionId).apply {
-                    enabled = true
-                }
-            }
+//        if (sessionId != 0) {
+//             Tự động kiểm soát mức tăng (AGC): Quan trọng để nghe tiếng THÌ THẦM/Ở XA
+//            if (android.media.audiofx.AutomaticGainControl.isAvailable()) {
+//                android.media.audiofx.AutomaticGainControl.create(sessionId).apply {
+//                    enabled = true
+//                }
+//            }
             // Khử nhiễu (NS): Lọc bớt tiếng "rì rầm" của bạn cùng phòng
-            if (android.media.audiofx.NoiseSuppressor.isAvailable()) {
-                android.media.audiofx.NoiseSuppressor.create(sessionId).apply {
-                    enabled = true
-                }
-            }
-        }
+//            if (android.media.audiofx.NoiseSuppressor.isAvailable()) {
+//                android.media.audiofx.NoiseSuppressor.create(sessionId).apply {
+//                    enabled = true
+//                }
+//            }
+//        }
 
         Thread {
             val audioBuffer = ShortArray(frameLength)
-            audioRecord?.startRecording() // Bắt đầu thu âm sau khi đã setup xong FX
+            audioRecord?.startRecording()
 
             while (isRunning) {
                 if (isPaused) {
@@ -287,7 +286,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             }
 
             val textView = TextView(this).apply {
-                text = "NM!"
+                text = "PNM!"
                 setTextColor(Color.WHITE)
                 textSize = 85f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -400,7 +399,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     // --- 5. TÍNH NĂNG RELAX (HẸN GIỜ 10 PHÚT) ---
     private fun startRelaxTimer() {
         systemTaskHandler.removeCallbacksAndMessages(null)
-        speak("Relaxation protocol initiated. Enjoy your downtime, Sir.")
+        speak("Relaxation protocol initiated. ... Enjoy your downtime, Sir.")
 
         // Hẹn giờ 10 phút (600,000 ms)
         systemTaskHandler.postDelayed({
