@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Calendar
 
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -72,6 +73,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     private var windowManager: WindowManager? = null
     private var blueScreenView: FrameLayout? = null
     private var isLocked = false
+    private var isTtsReady = false // Cờ kiểm tra trạng thái
 
     // --- 1. TÍNH NĂNG ĐIỀU KHIỂN QUA THÔNG BÁO ---
     private val notificationReceiver = object : BroadcastReceiver() {
@@ -100,6 +102,10 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         // Điều này sẽ hiện cái thông báo "Jarvis is listening..." lên ngay lập tức
         startForeground(NOTIFICATION_ID, buildNotification())
 
+        // Khởi tạo cả 2 cùng lúc để tiết kiệm thời gian
+        tts = TextToSpeech(this, this)
+        initPicovoice() // Jarvis sẽ bắt đầu nghe ngay khi model load xong
+
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Jarvis::WakeLock")
         wakeLock?.acquire()
@@ -114,8 +120,25 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
-        Log.d("JARVIS_DEBUG", "Hệ thống đã trình diện và hiện thông báo thành công.")
-        tts = TextToSpeech(this, this)
+        Log.d("JARVIS_DEBUG", "Đang khởi tạo TTS và Picovoice song song...")
+    }
+
+    // Hàm chào hỏi lúc mới bật Service
+    private fun startupGreeting() {
+        // Xác định buổi dựa trên Calendar (vì Date() không lấy được hour dễ dàng)
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        val greetingPrefix = when (hour) {
+            in 5..11 -> "Good morning"
+            in 12..17 -> "Good afternoon"
+            in 18..22 -> "Good evening"
+            else -> "Good night"
+        }
+
+        // Kết hợp lại thành báo cáo trạng thái chuyên nghiệp
+        val report = "$greetingPrefix, Sir... Neural core initialized. Awaiting your command."
+
+        // Gọi thẳng hàm speak ông đã viết sẵn
+        speak(report)
     }
 
     override fun onInit(status: Int) {
@@ -123,7 +146,14 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             tts?.language = Locale.UK // Giọng Anh cho nó chuyên nghiệp
             tts?.setPitch(0.92f)
             tts?.setSpeechRate(1.0f)
-            initPicovoice()
+
+            isTtsReady = true
+            // TRICK LÀM NÓNG: Cho Jarvis nói thầm hoặc nói một câu chào cực ngắn
+            // Việc này ép TTS engine phải render âm thanh ngay lập tức vào cache
+            startupGreeting() // Gọi hàm chào báo cáo trạng thái
+            Log.d("JARVIS_DEBUG", "TTS đã sẵn sàng và đã được làm nóng.")
+        } else {
+            Log.e("JARVIS_DEBUG", "Khởi tạo TTS thất bại!")
         }
     }
 
@@ -254,7 +284,10 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
                 // BỔ SUNG: Xử lý khi ông nói "no", "cancel" hoặc "denied"
                 "disagree" -> {
-                    speak("Action cancelled, sir.")
+//                    speak("Action cancelled, sir.")
+
+                    // nó hay nghe nhầm relax mode qua phần này
+                    startRelaxTimer()
                 }
             }
         } else {
@@ -345,7 +378,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
         // --- HẸN GIỜ 10 PHÚT (600.000 ms) ---
         handler.postDelayed({
-            speak("Neuro-stabilization complete. Your mind is now optimized, sir.")
+            speak("Neuro-stabilization complete. ... Your mind is now optimized, sir.")
 
             // Giải phóng điện thoại sau 10 phút
             triggerPhoneBlackout(false)
@@ -406,13 +439,13 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             Log.d("Assistant", "Hết 10 phút Relax!")
 
             // Câu 1: Trạng thái hệ thống
-            speak("Synaptic noise eliminated ... Neural pathways synchronized.")
+            speak("Synaptic noise eliminated. ... Neural pathways synchronized.")
 
             // Đợi 3 giây để câu đầu kết thúc rồi mới nói câu tiếp theo
             systemTaskHandler.postDelayed({
                 // Câu 2: Thông báo sẵn sàng
                 speak("Your cognitive engine is now ready, Sir.")
-            }, 8000)
+            }, 6000)
 
         }, 600000)
     }
@@ -489,11 +522,10 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                 // Nếu bật đèn, thiết lập tự động tắt sau 60 giây
                 flashHandler.postDelayed({
                     if (isFlashOn) {
-                        toggleFlashlight(false) // Tự gọi lại hàm để tắt đèn vật lý
-
-                        // CHỈ DÙNG 1 CÂU DUY NHẤT THEO YÊU CẦU
                         speak("Safety timeout reached. Powering down the flashlight.")
                         Log.d("JARVIS_DEBUG", "Flash tự động tắt sau 60 giây do an toàn.")
+
+                        toggleFlashlight(false) // Tự gọi lại hàm để tắt đèn vật lý
                     }
                 }, 60000L)
             }
