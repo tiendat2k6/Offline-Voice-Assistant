@@ -145,7 +145,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         // 1.15f là khá nhanh, nên để quãng nghỉ dài hơn một chút để bù đắp
         val report = "<speak>" +
                 "$greetingPrefix Sir. <break time=\"800ms\"/> " +
-                "Neural core initialized. <break time=\"600ms\"/> " +
+                "Neural core initialized. <break time=\"700ms\"/> " +
                 "Awaiting your command." +
                 "</speak>"
 
@@ -409,9 +409,15 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         // Thông báo trạng thái qua TTS
         // speak("Protocol Blackout initiated... Target neutralized, sir.")
 
-        speak("Dopamine receptors stabilizing... Neuro-reset in progress. ... You are training your neural weights right now, Sir.")
+        val report = "<speak>" +
+                "Dopamine receptors stabilizing. Neuro-reset in progress. <break time=\"800ms\"/>" +
+                "You are training your neural weights right now, Sir." +
+                "</speak>"
+
+        speak(report)
 
         // Kích hoạt màn hình xanh trên điện thoại ngay lập tức
+
         triggerPhoneBlackout(true)
 
         // --- HẸN GIỜ 10 PHÚT (600.000 ms) ---
@@ -565,7 +571,9 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                         WindowManager.LayoutParams.FLAG_FULLSCREEN or
                         WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, // Giữ màn hình luôn sáng
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or // Giữ màn hình luôn sáng
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or   // <--- QUAN TRỌNG: Tự bật màn hình
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED, // <--- QUAN TRỌNG: Hiện đè lockscreen
                 PixelFormat.TRANSLUCENT
             ).apply {
                 // Đẩy độ sáng màn hình lên mức cao nhất (1.0f)
@@ -598,7 +606,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             frontLightView?.let { view ->
                 view.animate()
                     .alpha(0f) // Giảm độ trong suốt về 0
-                    .setDuration(1000) // Thời gian giảm
+                    .setDuration(2000) // Thời gian giảm
                     .withEndAction {
                         // Sau khi chạy xong hiệu ứng thì mới xóa View
                         try {
