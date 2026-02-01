@@ -79,6 +79,9 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     // Lưu trữ các hành động cần thực hiện sau khi nói xong một ID cụ thể
     private val ttsCallbacks = mutableMapOf<String, () -> Unit>()
 
+    // quản lý View mặt trước
+    private var frontLightView: FrameLayout? = null
+
     // --- 1. TÍNH NĂNG ĐIỀU KHIỂN QUA THÔNG BÁO ---
     private val notificationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -138,11 +141,20 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             else -> "Good night"
         }
 
-        tts?.setSpeechRate(1.15f)
-        val report = "$greetingPrefix Sir... Neural core initialized. Awaiting your command."
+        // 1. Chỉnh lại chuỗi report với các thẻ nghỉ (break)
+        // 1.15f là khá nhanh, nên để quãng nghỉ dài hơn một chút để bù đắp
+        val report = "<speak>" +
+                "$greetingPrefix Sir. <break time=\"800ms\"/> " +
+                "Neural core initialized. <break time=\"600ms\"/> " +
+                "Awaiting your command." +
+                "</speak>"
 
+        // 2. Tăng tốc độ
+        tts?.setSpeechRate(1.15f)
+
+        // 3. Gọi hàm speak (Đảm bảo hàm speakWithAction của bạn truyền đúng tham số SSML)
         speakWithAction(report, "STARTUP_ID") {
-            tts?.setSpeechRate(1.0f) // Tự động chạy sau khi nói xong
+            tts?.setSpeechRate(1.0f)
             Log.d("JARVIS", "Tốc độ đã về 1.0")
         }
     }
@@ -277,8 +289,15 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
                 "light" -> {
                     isFlashOn = !isFlashOn
-                    toggleFlashlight(isFlashOn)
-                    speak(if (isFlashOn) "Flashlight activated." else "Flashlight deactivated.")
+                    toggleFrontLight(isFlashOn)
+
+                    val response = if (isFlashOn) {
+                        "Engaging optical matrix, Sir." // Đang kích hoạt ma trận quang học
+                    } else {
+                        "Primary array offline."       // Mảng sơ cấp đã ngoại tuyến
+                    }
+
+                    speak(response)
                 }
 
                 "trigger_relax" -> startRelaxTimer()
@@ -525,32 +544,78 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
     }
 
-    private fun toggleFlashlight(status: Boolean) {
-        try {
-            val cameraId = cameraManager?.cameraIdList?.get(0) ?: return
+    private fun toggleFrontLight(status: Boolean) {
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
 
-            // Thực thi lệnh bật/tắt vật lý
-            cameraManager?.setTorchMode(cameraId, status)
-            isFlashOn = status
-            Log.d("JARVIS_DEBUG", "Flashlight status: $status")
+        if (status) {
+            if (frontLightView != null) return // Đã bật rồi thì thôi
 
-            // Xóa các lệnh hẹn giờ cũ để reset bộ đếm
-            flashHandler.removeCallbacksAndMessages(null)
+            // Thay Color.WHITE bằng màu Ice Blue hiện đại
+            frontLightView = FrameLayout(this).apply {
+                setBackgroundColor(Color.parseColor("#F0F8FF"))
+                alpha = 0f // Bắt đầu từ trong suốt
+                animate().alpha(1f).setDuration(1000).start() // Hiện dần lên trong 1s
+            }
 
-            if (status) {
-                // Nếu bật đèn, thiết lập tự động tắt sau 60 giây
+            // 2. Thiết lập LayoutParams để đè toàn màn hình và đẩy độ sáng
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_FULLSCREEN or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON, // Giữ màn hình luôn sáng
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                // Đẩy độ sáng màn hình lên mức cao nhất (1.0f)
+                screenBrightness = 1.0f
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
+            }
+
+            try {
+                wm.addView(frontLightView, params)
+                isFlashOn = true
+                Log.d("JARVIS_DEBUG", "Front Light Activated at Max Brightness")
+
+                // 3. Logic Timeout 60s của ông
+                flashHandler.removeCallbacksAndMessages(null)
                 flashHandler.postDelayed({
                     if (isFlashOn) {
-
-                        speakWithAction("Safety timeout reached. Powering down the flashlight.", "TURNOFF_LIGHT") {
-                            toggleFlashlight(false) // Tự gọi lại hàm để tắt đèn vật lý
-                            Log.d("JARVIS_DEBUG", "Flash tự động tắt sau 60 giây do an toàn.")
+                        speakWithAction("Safety timeout reached. Deactivating illumination matrix.", "TURNOFF_LIGHT") {
+                            toggleFrontLight(false)
                         }
                     }
                 }, 60000L)
+            } catch (e: Exception) {
+                Log.e("JARVIS_DEBUG", "Lỗi bật đèn trước: ${e.message}")
             }
-        } catch (e: Exception) {
-            Log.e("JARVIS_DEBUG", "Lỗi Flash: ${e.message}")
+
+        } else {
+            // TẮT ĐÈN: Giảm độ sáng từ từ rồi mới gỡ View
+            frontLightView?.let { view ->
+                view.animate()
+                    .alpha(0f) // Giảm độ trong suốt về 0
+                    .setDuration(1000) // Thời gian giảm
+                    .withEndAction {
+                        // Sau khi chạy xong hiệu ứng thì mới xóa View
+                        try {
+                            if (view.isAttachedToWindow) {
+                                wm.removeView(view)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("JARVIS_DEBUG", "Lỗi khi gỡ View: ${e.message}")
+                        }
+                        frontLightView = null
+                    }
+                    .start()
+            }
+
+            isFlashOn = false
+            Log.d("JARVIS_DEBUG", "Front Light Deactivating (Fading out...)")
+            flashHandler.removeCallbacksAndMessages(null)
         }
     }
 
