@@ -41,6 +41,7 @@ import android.view.KeyEvent
 import android.view.Gravity
 import android.widget.FrameLayout
 import android.widget.TextView
+import android.speech.tts.UtteranceProgressListener
 
 
 class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
@@ -74,6 +75,9 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     private var blueScreenView: FrameLayout? = null
     private var isLocked = false
     private var isTtsReady = false // Cờ kiểm tra trạng thái
+
+    // Lưu trữ các hành động cần thực hiện sau khi nói xong một ID cụ thể
+    private val ttsCallbacks = mutableMapOf<String, () -> Unit>()
 
     // --- 1. TÍNH NĂNG ĐIỀU KHIỂN QUA THÔNG BÁO ---
     private val notificationReceiver = object : BroadcastReceiver() {
@@ -134,26 +138,39 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             else -> "Good night"
         }
 
-        // Kết hợp lại thành báo cáo trạng thái chuyên nghiệp
-        val report = "$greetingPrefix, Sir... Neural core initialized. Awaiting your command."
+        tts?.setSpeechRate(1.15f)
+        val report = "$greetingPrefix Sir... Neural core initialized. Awaiting your command."
 
-        // Gọi thẳng hàm speak ông đã viết sẵn
-        speak(report)
+        speakWithAction(report, "STARTUP_ID") {
+            tts?.setSpeechRate(1.0f) // Tự động chạy sau khi nói xong
+            Log.d("JARVIS", "Tốc độ đã về 1.0")
+        }
     }
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            tts?.language = Locale.UK // Giọng Anh cho nó chuyên nghiệp
-            tts?.setPitch(0.92f)
-            tts?.setSpeechRate(1.0f)
+            tts?.apply {
+                language = Locale.UK
+                setPitch(0.92f)
+                setSpeechRate(1.0f)
+            }
 
+            // THIẾT LẬP BỘ THEO DÕI TỔNG THỂ
+            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onError(utteranceId: String?) { ttsCallbacks.remove(utteranceId) }
+
+                override fun onDone(utteranceId: String?) {
+                    // Khi nói xong, kiểm tra xem có hành động nào được đăng ký cho ID này không
+                    val action = ttsCallbacks.remove(utteranceId)
+                    action?.let {
+                        // Chạy hành động đó (Ví dụ: đổi tốc độ, bật mic, chuyển mode...)
+                        handler.post { it.invoke() }
+                    }
+                }
+            })
             isTtsReady = true
-            // TRICK LÀM NÓNG: Cho Jarvis nói thầm hoặc nói một câu chào cực ngắn
-            // Việc này ép TTS engine phải render âm thanh ngay lập tức vào cache
-            startupGreeting() // Gọi hàm chào báo cáo trạng thái
-            Log.d("JARVIS_DEBUG", "TTS đã sẵn sàng và đã được làm nóng.")
-        } else {
-            Log.e("JARVIS_DEBUG", "Khởi tạo TTS thất bại!")
+            startupGreeting()
         }
     }
 
@@ -242,11 +259,13 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     private fun acknowledgeAndSwitch() {
         // --- 3. TĂNG TỐC ĐỘ NÓI KHI CHÀO (GIỐNG CODE CŨ) ---
         tts?.setSpeechRate(1.3f)
-        speak("On your command.")
-        handler.postDelayed({
-            tts?.setSpeechRate(1.0f) // Trả lại tốc độ chuẩn
-            useRhino = true
-        }, 1000)
+
+        // Nói xong mới bật Rhino
+        speakWithAction("On your command.", "SWITCH_MODE_ID") {
+            tts?.setSpeechRate(1.0f)
+            useRhino = true // Chỉ bật Rhino khi Jarvis đã im lặng
+            Log.d("JARVIS", "Đã chuyển sang Rhino")
+        }
     }
 
     private fun processRhinoInference(inference: RhinoInference) {
@@ -522,10 +541,11 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                 // Nếu bật đèn, thiết lập tự động tắt sau 60 giây
                 flashHandler.postDelayed({
                     if (isFlashOn) {
-                        speak("Safety timeout reached. Powering down the flashlight.")
-                        Log.d("JARVIS_DEBUG", "Flash tự động tắt sau 60 giây do an toàn.")
 
-                        toggleFlashlight(false) // Tự gọi lại hàm để tắt đèn vật lý
+                        speakWithAction("Safety timeout reached. Powering down the flashlight.", "TURNOFF_LIGHT") {
+                            toggleFlashlight(false) // Tự gọi lại hàm để tắt đèn vật lý
+                            Log.d("JARVIS_DEBUG", "Flash tự động tắt sau 60 giây do an toàn.")
+                        }
                     }
                 }, 60000L)
             }
@@ -540,6 +560,17 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
         // QUEUE_FLUSH giúp hủy các câu nói cũ đang chờ, nói câu mới ngay lập tức
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "JarvisUtterance")
+    }
+
+    private fun speakWithAction(text: String, id: String, onDoneAction: () -> Unit) {
+        if (!isTtsReady) return
+
+        // Đăng ký hành động vào Map trước khi nói
+        ttsCallbacks[id] = onDoneAction
+
+        val params = Bundle()
+        // Thực hiện nói
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, id)
     }
 
     override fun onDestroy() {
