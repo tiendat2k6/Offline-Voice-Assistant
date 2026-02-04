@@ -82,6 +82,9 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     // quản lý View mặt trước
     private var frontLightView: FrameLayout? = null
 
+    // Biến trạng thái kiểm tra blackout_node.py
+    private var isBlackoutRunning = false
+
     // --- 1. TÍNH NĂNG ĐIỀU KHIỂN QUA THÔNG BÁO ---
     private val notificationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -150,7 +153,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                 "</speak>"
 
         // 2. Tăng tốc độ
-        tts?.setSpeechRate(1.15f)
+        tts?.setSpeechRate(1.2f)
 
         // 3. Gọi hàm speak (Đảm bảo hàm speakWithAction của bạn truyền đúng tham số SSML)
         speakWithAction(report, "STARTUP_ID") {
@@ -406,6 +409,13 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     }
 
     private fun triggerPcBlackout() {
+        if (isBlackoutRunning == true) {
+            speak("Blackout sequence is currently active. All external access remains restricted, Sir.")
+            return
+        }
+
+        isBlackoutRunning = true
+
         // Thông báo trạng thái qua TTS
         // speak("Protocol Blackout initiated... Target neutralized, sir.")
 
@@ -423,6 +433,8 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         // --- HẸN GIỜ 10 PHÚT (600.000 ms) ---
         handler.postDelayed({
             speak("Neuro-stabilization complete. ... Your mind is now optimized, sir.")
+
+            isBlackoutRunning = false
 
             // Giải phóng điện thoại sau 10 phút
             triggerPhoneBlackout(false)
@@ -592,7 +604,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                 flashHandler.removeCallbacksAndMessages(null)
                 flashHandler.postDelayed({
                     if (isFlashOn) {
-                        speakWithAction("Safety timeout reached. Deactivating illumination matrix.", "TURNOFF_LIGHT") {
+                        speakWithAction("Safety timeout reached. Disengaging lighting systems.", "TURNOFF_LIGHT") {
                             toggleFrontLight(false)
                         }
                     }
