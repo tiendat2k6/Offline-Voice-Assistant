@@ -264,6 +264,9 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                             handler.post {
                                 if (inference != null) processRhinoInference(inference)
                                 useRhino = false
+
+                                // QUAN TRỌNG: Phải xóa cái Timer 8s ở trên đi nếu đã nhận được lệnh
+                                handler.removeCallbacksAndMessages(rhinoTimeoutRunnable)
                             }
                         }
                     }
@@ -271,15 +274,32 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             }
         }.start()
     }
+
+    // Bộ đếm ngược 8 giây để thoát Rhino
+    private val rhinoTimeoutRunnable = Runnable {
+        if (useRhino) {
+            useRhino = false
+            Log.d("JARVIS", "Rhino Timeout - Quay lại chế độ chờ")
+             speak("No signal detected, Sir.") // báo là nó đã ngừng nghe
+        }
+    }
+
     private fun acknowledgeAndSwitch() {
-        // --- 3. TĂNG TỐC ĐỘ NÓI KHI CHÀO (GIỐNG CODE CŨ) ---
+        // --- 3. TĂNG TỐC ĐỘ NÓI KHI CHÀO ---
         tts?.setSpeechRate(1.3f)
 
         // Nói xong mới bật Rhino
         speakWithAction("On your command.", "SWITCH_MODE_ID") {
             tts?.setSpeechRate(1.0f)
             useRhino = true // Chỉ bật Rhino khi Jarvis đã im lặng
-            Log.d("JARVIS", "Đã chuyển sang Rhino")
+            Log.d("JARVIS", "Đã chuyển sang Rhino trong 8s")
+
+            // --- BẮT ĐẦU ĐẾM NGƯỢC 8 GIÂY ---
+            handler.removeCallbacks(rhinoTimeoutRunnable) // Xóa các bộ đếm cũ (nếu có)
+            handler.postDelayed(rhinoTimeoutRunnable, 8000)
+
+            Log.d("JARVIS", "Đã bật Rhino - Hạn chót: 8 giây")
+
         }
     }
 
@@ -334,7 +354,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         } else {
             // Rhino không khớp được âm thanh với bất kỳ Expression nào trong YAML
             Log.w("JARVIS_DEBUG", "Rhino không hiểu lệnh. Expression không khớp.")
-            speak("Input unrecognized. Awaiting re-entry, sir.")
+            speak("Input unrecognized, sir.")
         }
     }
 
@@ -432,7 +452,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
         // --- HẸN GIỜ 10 PHÚT (600.000 ms) ---
         handler.postDelayed({
-            speak("Neuro-stabilization complete. ... Your mind is now optimized, sir.")
+            speak("Neuro-stabilization complete. Your mind is now optimized, sir.")
 
             isBlackoutRunning = false
 
@@ -471,31 +491,43 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         }.start()
     }
 
-    // --- 4. TÍNH NĂNG OVERRIDE (ĐẾM TUẦN PHẠT) ---
+    // --- 4. TÍNH NĂNG OVERRIDE (Luôn học trong 5 phút) ---
     private fun startOverrideMode() {
-        val startTimestamp = 1766480400000L // Mốc 23/12/2025
-        val weeksPassed = ((System.currentTimeMillis() - startTimestamp) / 604800000L).toInt()
-        val minutes = 3 + weeksPassed
-
         systemTaskHandler.removeCallbacksAndMessages(null)
-        speak("Manual Override initiated. Silence required for $minutes minutes, sir.")
 
+        // Câu lệnh bắt đầu: Thể hiện sự nghiêm túc
+        speakWithAction("Manual override engaged. Bypassing dopamine resistance for a five-minute interval.", "START_OVERRIDE_ID") {
+            // đợi 1 giây sau khi nói xong câu trên
+            handler.postDelayed({
+                speak("Your brain will synchronize shortly, Sir.")
+            }, 500)
+        }
+
+        // Hẹn giờ 5 phút (300,000 ms)
         systemTaskHandler.postDelayed({
-            speak("Override complete. Prefrontal Cortex is now in control.")
-        }, minutes * 60000L)
+            Log.d("Assistant", "Hết 5 phút Override!")
+
+            // Thông báo sau 5 phút
+            speakWithAction("The boredom barrier has been breached. Resistance levels have stabilized.", "END_OVERRIDE_ID") {
+                // đợi 1 giây sau khi nói xong câu trên
+                handler.postDelayed({
+                    speak("Momentum detected. Shall we maintain this flow, Sir?")
+                }, 800)
+            }
+        }, 300000)
     }
 
     // --- 5. TÍNH NĂNG RELAX (HẸN GIỜ 10 PHÚT) ---
     private fun startRelaxTimer() {
         systemTaskHandler.removeCallbacksAndMessages(null)
-        speak("Relaxation protocol initiated. ... Enjoy your downtime, Sir.")
+        speak("Relaxation protocol initiated. Enjoy your downtime, Sir.")
 
         // Hẹn giờ 10 phút (600,000 ms)
         systemTaskHandler.postDelayed({
             Log.d("Assistant", "Hết 10 phút Relax!")
 
             // Câu 1: Trạng thái hệ thống
-            speak("Synaptic noise eliminated. ... Neural pathways synchronized.")
+            speak("Synaptic noise eliminated. Neural pathways synchronized.")
 
             // Đợi 3 giây để câu đầu kết thúc rồi mới nói câu tiếp theo
             systemTaskHandler.postDelayed({
