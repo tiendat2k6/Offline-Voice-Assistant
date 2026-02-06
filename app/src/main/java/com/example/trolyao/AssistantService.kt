@@ -367,8 +367,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
             blueScreenView = FrameLayout(this).apply {
-                // Sắc xanh Neon Cyan (#62FCF1): Hiện đại, lạnh lùng và tương lai
-                setBackgroundColor(Color.parseColor("#62FCF1"))
+                setBackgroundColor(Color.BLACK) // Nền đen làm nổi bật ánh sáng xanh
                 isFocusable = true
                 isFocusableInTouchMode = true
 
@@ -379,13 +378,22 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                 }
             }
 
+            // TextView: Chữ xanh Neon + Phát sáng xanh Neon
             val textView = TextView(this).apply {
-                text = "PNM!"
-                setTextColor(Color.WHITE)
-                textSize = 85f
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                text = "PNM"
+                textSize = 100f
+                setTextColor(Color.parseColor("#39FF14"))
+
+                // 1. Dùng font Sans-Serif mặc định (không phải condensed) để chữ rộng hơn
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.BOLD)
+
+                // 2. GIÃN CHỮ RỘNG RA (Positive Letter Spacing): Tạo cảm giác cao cấp và hiện đại
+                letterSpacing = 0.25f
+
                 gravity = Gravity.CENTER
+                setShadowLayer(35f, 0f, 0f, Color.parseColor("#39FF14"))
             }
+
             blueScreenView?.addView(textView, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
 
             val params = WindowManager.LayoutParams(
