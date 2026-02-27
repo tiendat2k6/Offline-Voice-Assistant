@@ -5,11 +5,13 @@ import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import java.util.Locale
 
 object JarvisVoice {
     private var tts: TextToSpeech? = null
-    private var isReady = false
+    var isReady: Boolean = false
+        private set
 
     // lưu trữ các hành động chờ thực hiện sau khi nói xong
     private val ttsCallbacks = mutableMapOf<String, () -> Unit>()
@@ -64,5 +66,18 @@ object JarvisVoice {
         // xác định chế độ: ngắt lời hay xếp hàng
         val mode = if (isInterrupt) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
         tts?.speak(text, mode, null, utteranceId)
+    }
+
+    fun shutdown() {
+        try {
+            tts?.stop()
+            tts?.shutdown()
+        } catch (e: Exception) {
+            Log.e("JARVIS", "Lỗi dọn dẹp TTS: ${e.message}")
+        } finally {
+            tts = null
+            isReady = false
+            ttsCallbacks.clear()
+        }
     }
 }

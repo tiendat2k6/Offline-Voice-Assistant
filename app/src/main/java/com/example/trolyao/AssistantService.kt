@@ -150,7 +150,7 @@ class AssistantService : AccessibilityService() {
         val report = "<speak>" +
                 "<prosody pitch='-10%'>Neural core initialized.</prosody> " +
                 "<break time='400ms'/>" +
-                "<prosody rate='1.2'>Welcome back, </prosody> " + // Chữ back lướt nhanh hơn ở đây
+                "<prosody rate='1.27'>Welcome back, </prosody> " + // Chữ back lướt nhanh hơn ở đây
                 "sir." + // Nhấn mạnh chữ Sir trầm xuống để chốt hạ
                 "</speak>"
 
@@ -258,7 +258,7 @@ class AssistantService : AccessibilityService() {
     }
 
     private fun acknowledgeAndSwitch() {
-        val report = "<speak><prosody rate='1.3'>On your command.</prosody></speak>"
+        val report = "<speak><prosody rate='1.28'>On your command.</prosody></speak>"
         speak(report) {
             useRhino = true // Chỉ bật Rhino khi Jarvis đã im lặng
             Log.d("JARVIS", "Đã chuyển sang Rhino trong 8s")
@@ -485,7 +485,7 @@ class AssistantService : AccessibilityService() {
         // Câu lệnh bắt đầu: Thể hiện sự nghiêm túc
         val report = "<speak>" +
                 "Manual override engaged. <break time='400ms'/>" +
-                "<prosody rate='0.9' pitch='-10%'>Stabilize <emphasis level='moderate'>focus</emphasis> and <emphasis level='moderate'>accelerate</emphasis> execution,</prosody> " +
+                "<prosody rate='0.9' pitch='-10%'>Stabilize <emphasis level='moderate'>focus</emphasis>, and <emphasis level='moderate'>accelerate</emphasis> execution,</prosody> " +
                 "<break time='200ms'/>Sir." +
                 "</speak>"
 
@@ -661,6 +661,7 @@ class AssistantService : AccessibilityService() {
         wakeLock?.release()
         audioRecord?.stop(); audioRecord?.release()
         porcupine?.delete(); rhino?.delete()
+        JarvisVoice.shutdown() // QUAN TRỌNG: Giết sạch "bóng ma" TTS
         super.onDestroy()
     }
 
