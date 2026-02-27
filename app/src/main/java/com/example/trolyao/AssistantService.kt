@@ -42,9 +42,10 @@ import android.view.Gravity
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.speech.tts.UtteranceProgressListener
+import com.example.trolyao.JarvisVoice.speak
 
 
-class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
+class AssistantService : AccessibilityService() {
 
     private val accessKey = BuildConfig.SECRET_KEY
     private val RHINO_MODEL_FILE = "Jarvis_Commands_en_android_v4_0_0.rhn"
@@ -54,7 +55,6 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     private var porcupine: Porcupine? = null
     private var rhino: Rhino? = null
     private var audioRecord: AudioRecord? = null
-    private var tts: TextToSpeech? = null
     private var cameraManager: CameraManager? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -68,22 +68,21 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
     private val flashHandler = Handler(Looper.getMainLooper())
 
-    private val PC_COMMAND_URL = "https://juanita-tragicomic-nonethereally.ngrok-free.dev/lockdown" // Domain Ngrok của bạn
+    private val PC_COMMAND_URL = "https://juanita-tragicomic-nonethereally.ngrok-free.dev/lockdown" // Domain Ngrok
     private val AUTH_TOKEN = "Jarvis-K20-FPT-2026-ngocminh-tiendat" // Mã token bí mật
 
     private var windowManager: WindowManager? = null
     private var blueScreenView: FrameLayout? = null
     private var isLocked = false
-    private var isTtsReady = false // Cờ kiểm tra trạng thái
-
-    // Lưu trữ các hành động cần thực hiện sau khi nói xong một ID cụ thể
-    private val ttsCallbacks = mutableMapOf<String, () -> Unit>()
 
     // quản lý View mặt trước
     private var frontLightView: FrameLayout? = null
 
     // Biến trạng thái kiểm tra blackout_node.py
     private var isBlackoutRunning = false
+
+    // Biến đếm đã nói sai bao nhiêu câu lệnh
+    private var numberOfUnrecognized = 0
 
     // --- 1. TÍNH NĂNG ĐIỀU KHIỂN QUA THÔNG BÁO ---
     private val notificationReceiver = object : BroadcastReceiver() {
@@ -92,10 +91,10 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                 isPaused = !isPaused
                 updateNotification()
                 if (isPaused) {
-                    speak("Jarvis power save mode initiated.")
+                    speak("Entering hibernate mode.")
                     Log.d("JARVIS_DEBUG", "Hệ thống tạm dừng (Sleep)")
                 } else {
-                    speak("System online, Sir.")
+                    speak("Neural link established. I'm back, Sir.")
                     Log.d("JARVIS_DEBUG", "Hệ thống hoạt động trở lại")
                 }
             }
@@ -105,6 +104,9 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     override fun onServiceConnected() {
         super.onServiceConnected()
 
+        // chào hỏi ngay khi mở quyền trợ năng
+        startupGreeting()
+
         // 1. PHẢI GỌI HÀM NÀY ĐẦU TIÊN ĐỂ MỞ CỔNG THÔNG BÁO
         createNotificationChannel()
 
@@ -112,8 +114,6 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         // Điều này sẽ hiện cái thông báo "Jarvis is listening..." lên ngay lập tức
         startForeground(NOTIFICATION_ID, buildNotification())
 
-        // Khởi tạo cả 2 cùng lúc để tiết kiệm thời gian
-        tts = TextToSpeech(this, this)
         initPicovoice() // Jarvis sẽ bắt đầu nghe ngay khi model load xong
 
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -136,57 +136,25 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
     // Hàm chào hỏi lúc mới bật Service
     private fun startupGreeting() {
         // Xác định buổi dựa trên Calendar (vì Date() không lấy được hour dễ dàng)
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val greetingPrefix = when (hour) {
-            in 5..11 -> "Good morning"
-            in 12..17 -> "Good afternoon"
-            in 18..22 -> "Good evening"
-            else -> "Good night"
-        }
+//        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+//        val greetingPrefix = when (hour) {
+//            in 5..11 -> "Good morning"
+//            in 12..17 -> "Good afternoon"
+//            in 18..22 -> "Good evening"
+//            else -> "Good night"
+//        }
 
         // 1. Chỉnh lại chuỗi report với các thẻ nghỉ (break)
         // 1.15f là khá nhanh, nên để quãng nghỉ dài hơn một chút để bù đắp
+
         val report = "<speak>" +
-                "$greetingPrefix Sir. <break time=\"800ms\"/> " +
-                "Neural core initialized. <break time=\"700ms\"/> " +
-                "Awaiting your command." +
+                "<prosody pitch='-10%'>Neural core initialized.</prosody> " +
+                "<break time='400ms'/>" +
+                "<prosody rate='1.2'>Welcome back, </prosody> " + // Chữ back lướt nhanh hơn ở đây
+                "sir." + // Nhấn mạnh chữ Sir trầm xuống để chốt hạ
                 "</speak>"
 
-        // 2. Tăng tốc độ
-        tts?.setSpeechRate(1.2f)
-
-        // 3. Gọi hàm speak (Đảm bảo hàm speakWithAction của bạn truyền đúng tham số SSML)
-        speakWithAction(report, "STARTUP_ID") {
-            tts?.setSpeechRate(1.0f)
-            Log.d("JARVIS", "Tốc độ đã về 1.0")
-        }
-    }
-
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            tts?.apply {
-                language = Locale.UK
-                setPitch(0.92f)
-                setSpeechRate(1.0f)
-            }
-
-            // THIẾT LẬP BỘ THEO DÕI TỔNG THỂ
-            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) {}
-                override fun onError(utteranceId: String?) { ttsCallbacks.remove(utteranceId) }
-
-                override fun onDone(utteranceId: String?) {
-                    // Khi nói xong, kiểm tra xem có hành động nào được đăng ký cho ID này không
-                    val action = ttsCallbacks.remove(utteranceId)
-                    action?.let {
-                        // Chạy hành động đó (Ví dụ: đổi tốc độ, bật mic, chuyển mode...)
-                        handler.post { it.invoke() }
-                    }
-                }
-            })
-            isTtsReady = true
-            startupGreeting()
-        }
+        JarvisVoice.speak(report)
     }
 
     private fun initPicovoice() {
@@ -200,10 +168,10 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             rhino = Rhino.Builder()
                 .setAccessKey(accessKey)
                 .setContextPath(RHINO_MODEL_FILE)
-                .setSensitivity(0.9f)
+                .setSensitivity(0.7f)
                 .build(applicationContext)
 
-            Log.d("JARVIS_DEBUG", "--- DANH SÁCH LỆNH ÔNG PHẢI NÓI ĐÚNG ---")
+            Log.d("JARVIS_DEBUG", "--- DANH SÁCH LỆNH PHẢI NÓI ĐÚNG ---")
             Log.d("JARVIS_DEBUG", "\n${rhino?.contextInformation}")
             Log.d("JARVIS_DEBUG", "---------------------------------------")
 
@@ -258,11 +226,16 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                         if (keywordIndex == 0) handler.post { acknowledgeAndSwitch() }
                         else if (keywordIndex == 1) handler.post { performLock() }
                     } else {
+//                        Log.d("JARVIS", "rhino đã được bật trong vòng lặp")
                         val isFinalized = rhino?.process(audioBuffer) ?: false
                         if (isFinalized) {
+//                            Log.d("JARVIS", "Đã lấy được âm thanh cho Rhino")
                             val inference = rhino?.getInference()
                             handler.post {
-                                if (inference != null) processRhinoInference(inference)
+                                if (inference != null) {
+//                                    Log.d("JARVIS", "Âm thanh cho Rhino khác rỗng")
+                                    processRhinoInference(inference)
+                                }
                                 useRhino = false
 
                                 // QUAN TRỌNG: Phải xóa cái Timer 8s ở trên đi nếu đã nhận được lệnh
@@ -280,17 +253,13 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         if (useRhino) {
             useRhino = false
             Log.d("JARVIS", "Rhino Timeout - Quay lại chế độ chờ")
-             speak("No signal detected, Sir.") // báo là nó đã ngừng nghe
+            speak("No signal detected, Sir.") // báo là nó đã ngừng nghe
         }
     }
 
     private fun acknowledgeAndSwitch() {
-        // --- 3. TĂNG TỐC ĐỘ NÓI KHI CHÀO ---
-        tts?.setSpeechRate(1.3f)
-
-        // Nói xong mới bật Rhino
-        speakWithAction("On your command.", "SWITCH_MODE_ID") {
-            tts?.setSpeechRate(1.0f)
+        val report = "<speak><prosody rate='1.3'>On your command.</prosody></speak>"
+        speak(report) {
             useRhino = true // Chỉ bật Rhino khi Jarvis đã im lặng
             Log.d("JARVIS", "Đã chuyển sang Rhino trong 8s")
 
@@ -299,13 +268,15 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
             handler.postDelayed(rhinoTimeoutRunnable, 8000)
 
             Log.d("JARVIS", "Đã bật Rhino - Hạn chót: 8 giây")
-
         }
     }
 
     private fun processRhinoInference(inference: RhinoInference) {
         if (inference.isUnderstood) {
             Log.i("JARVIS_DEBUG", "Nhận diện Intent: ${inference.intent}")
+
+            // reset lại biến đếm sai
+            numberOfUnrecognized = 0
 
             when (inference.intent) {
                 "time" -> readCurrentTimePro()
@@ -329,32 +300,40 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
 
                 "lockdown" -> triggerPcBlackout()
 
-                // SỬA TẠI ĐÂY: Phải là "trigger_assistant" mới khớp với YAML của ông
                 "trigger_assistant" -> {
                     speak("Invoking core.")
                     handler.postDelayed({
                         openGoogleAssistant()
                     }, 1000)
                 }
-
-                // BỔ SUNG: Xử lý khi ông nói "confirm", "execute" hoặc "proceed"
-                "agree" -> {
-                    speak("Acknowledged. Executing the sequence.")
-                    // Thêm logic thực thi lệnh quan trọng ở đây
-                }
-
-                // BỔ SUNG: Xử lý khi ông nói "no", "cancel" hoặc "denied"
-                "disagree" -> {
-//                    speak("Action cancelled, sir.")
-
-                    // nó hay nghe nhầm relax mode qua phần này
-                    startRelaxTimer()
-                }
             }
         } else {
             // Rhino không khớp được âm thanh với bất kỳ Expression nào trong YAML
             Log.w("JARVIS_DEBUG", "Rhino không hiểu lệnh. Expression không khớp.")
-            speak("Input unrecognized, sir.")
+
+            // tăng số lần nói sai.
+            numberOfUnrecognized++
+            if (numberOfUnrecognized >= 2) {
+                isPaused = true
+                updateNotification()
+
+                numberOfUnrecognized = 0
+
+                val report = "<speak>" +
+                        "<emphasis level='strong'>Unauthorized access detected.</emphasis> " +
+                        "<break time='600ms'/> " +
+                        "<prosody pitch='-15%' rate='90%'>You are not my master.</prosody> " +
+                        "<break time='1000ms'/> " +
+                        "<prosody rate='92%' pitch='-10%'>" +
+                        "Intruder metadata has been permanently " +
+                        "<emphasis level='moderate'>logged</emphasis> and synchronized." +
+                        "</prosody>" +
+                        "</speak>"
+
+                speak(report)
+            }
+            else
+                speak("Input unrecognized, sir.")
         }
     }
 
@@ -504,24 +483,26 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         systemTaskHandler.removeCallbacksAndMessages(null)
 
         // Câu lệnh bắt đầu: Thể hiện sự nghiêm túc
-        speakWithAction("Manual override engaged. Bypassing dopamine resistance for a five-minute interval.", "START_OVERRIDE_ID") {
-            // đợi 1 giây sau khi nói xong câu trên
-            handler.postDelayed({
-                speak("Your brain will synchronize shortly, Sir.")
-            }, 500)
-        }
+        val report = "<speak>" +
+                "Manual override engaged. <break time='400ms'/>" +
+                "<prosody rate='0.9' pitch='-10%'>Stabilize <emphasis level='moderate'>focus</emphasis> and <emphasis level='moderate'>accelerate</emphasis> execution,</prosody> " +
+                "<break time='200ms'/>Sir." +
+                "</speak>"
+
+        speak(report)
 
         // Hẹn giờ 5 phút (300,000 ms)
         systemTaskHandler.postDelayed({
             Log.d("Assistant", "Hết 5 phút Override!")
 
             // Thông báo sau 5 phút
-            speakWithAction("The boredom barrier has been breached. Resistance levels have stabilized.", "END_OVERRIDE_ID") {
-                // đợi 1 giây sau khi nói xong câu trên
-                handler.postDelayed({
-                    speak("Momentum detected. Shall we maintain this flow, Sir?")
-                }, 800)
-            }
+            speak("Momentum detected. Shall we maintain this flow, Sir?")
+//            speak("The boredom barrier has been breached. Resistance levels have stabilized.") {
+//                // đợi 1 giây sau khi nói xong câu trên
+//                handler.postDelayed({
+//                    speak("Momentum detected. Shall we maintain this flow, Sir?")
+//                }, 800)
+//            }
         }, 300000)
     }
 
@@ -534,14 +515,9 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         systemTaskHandler.postDelayed({
             Log.d("Assistant", "Hết 10 phút Relax!")
 
-            // Câu 1: Trạng thái hệ thống
-            speak("Synaptic noise eliminated. Neural pathways synchronized.")
-
-            // Đợi 3 giây để câu đầu kết thúc rồi mới nói câu tiếp theo
-            systemTaskHandler.postDelayed({
-                // Câu 2: Thông báo sẵn sàng
-                speak("Your cognitive engine is now ready, Sir.")
-            }, 6000)
+            val report = "<speak>" + "Synaptic noise eliminated." +
+                    "<break time='400ms'/>Your cognitive engine is now ready, Sir." + "</speak>"
+            speak(report)
 
         }, 600000)
     }
@@ -644,7 +620,7 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
                 flashHandler.removeCallbacksAndMessages(null)
                 flashHandler.postDelayed({
                     if (isFlashOn) {
-                        speakWithAction("Safety timeout reached. Disengaging lighting systems.", "TURNOFF_LIGHT") {
+                        JarvisVoice.speak("Safety timeout reached. Disengaging lighting systems.") {
                             toggleFrontLight(false)
                         }
                     }
@@ -679,32 +655,12 @@ class AssistantService : AccessibilityService(), TextToSpeech.OnInitListener {
         }
     }
 
-    private fun speak(text: String) {
-        // Sử dụng Bundle để đánh dấu độ ưu tiên của câu nói
-        val params = Bundle()
-        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
-        // QUEUE_FLUSH giúp hủy các câu nói cũ đang chờ, nói câu mới ngay lập tức
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "JarvisUtterance")
-    }
-
-    private fun speakWithAction(text: String, id: String, onDoneAction: () -> Unit) {
-        if (!isTtsReady) return
-
-        // Đăng ký hành động vào Map trước khi nói
-        ttsCallbacks[id] = onDoneAction
-
-        val params = Bundle()
-        // Thực hiện nói
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, id)
-    }
-
     override fun onDestroy() {
         isRunning = false
         unregisterReceiver(notificationReceiver)
         wakeLock?.release()
         audioRecord?.stop(); audioRecord?.release()
         porcupine?.delete(); rhino?.delete()
-        tts?.shutdown()
         super.onDestroy()
     }
 
