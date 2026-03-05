@@ -94,7 +94,12 @@ class AssistantService : AccessibilityService() {
                     speak("Entering hibernate mode.")
                     Log.d("JARVIS_DEBUG", "Hệ thống tạm dừng (Sleep)")
                 } else {
-                    speak("Neural link established. I'm back, Sir.")
+                    val report = "speak" +
+                            "Neural link established. " +
+                            "<prosody rate='1.28'>Welcome back, Sir.</prosody> " +
+                        "/speak"
+
+                    speak(report)
                     Log.d("JARVIS_DEBUG", "Hệ thống hoạt động trở lại")
                 }
             }
@@ -150,7 +155,7 @@ class AssistantService : AccessibilityService() {
         val report = "<speak>" +
                 "<prosody pitch='-10%'>Neural core initialized.</prosody> " +
                 "<break time='400ms'/>" +
-                "<prosody rate='1.27'>Welcome back, </prosody> " + // Chữ back lướt nhanh hơn ở đây
+                "<prosody rate='1.28'>Welcome back, </prosody> " + // Chữ back lướt nhanh hơn ở đây
                 "sir." + // Nhấn mạnh chữ Sir trầm xuống để chốt hạ
                 "</speak>"
 
@@ -485,7 +490,7 @@ class AssistantService : AccessibilityService() {
         // Câu lệnh bắt đầu: Thể hiện sự nghiêm túc
         val report = "<speak>" +
                 "Manual override engaged. <break time='400ms'/>" +
-                "<prosody rate='0.9' pitch='-10%'>Stabilize <emphasis level='moderate'>focus</emphasis>, and <emphasis level='moderate'>accelerate</emphasis> execution,</prosody> " +
+                "<prosody rate='0.9' pitch='-10%'> <emphasis level='moderate'>accelerate</emphasis> execution to maximum,</prosody> " +
                 "<break time='200ms'/>Sir." +
                 "</speak>"
 
@@ -588,7 +593,7 @@ class AssistantService : AccessibilityService() {
             frontLightView = FrameLayout(this).apply {
                 setBackgroundColor(Color.parseColor("#F0F8FF"))
                 alpha = 0f // Bắt đầu từ trong suốt
-                animate().alpha(1f).setDuration(1000).start() // Hiện dần lên trong 1s
+                animate().alpha(1f).setDuration(2000).start() // Hiện dần lên trong 2s
             }
 
             // 2. Thiết lập LayoutParams để đè toàn màn hình và đẩy độ sáng
@@ -616,7 +621,7 @@ class AssistantService : AccessibilityService() {
                 isFlashOn = true
                 Log.d("JARVIS_DEBUG", "Front Light Activated at Max Brightness")
 
-                // 3. Logic Timeout 60s của ông
+                // 3. Logic Timeout 60s
                 flashHandler.removeCallbacksAndMessages(null)
                 flashHandler.postDelayed({
                     if (isFlashOn) {
@@ -636,6 +641,7 @@ class AssistantService : AccessibilityService() {
                     .alpha(0f) // Giảm độ trong suốt về 0
                     .setDuration(2000) // Thời gian giảm
                     .withEndAction {
+                        performLock() // khoá màn hình (tắt đèn ngay lập tức)
                         // Sau khi chạy xong hiệu ứng thì mới xóa View
                         try {
                             if (view.isAttachedToWindow) {

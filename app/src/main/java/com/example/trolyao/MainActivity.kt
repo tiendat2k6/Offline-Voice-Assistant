@@ -1,6 +1,7 @@
 package com.example.trolyao
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -35,7 +36,13 @@ class MainActivity : AppCompatActivity() {
         val btnStop = Button(this)
         btnStop.text = "MỞ CÀI ĐẶT TRỢ NĂNG"
         btnStop.setOnClickListener {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                val serviceName = ComponentName(packageName, AssistantService::class.java.name).flattenToString()
+
+                // Thêm flag và dữ liệu định danh dịch vụ
+                putExtra("android.provider.extra.SERVICE_COMPONENT_NAME", serviceName) // Thử dùng Key chuẩn theo tài liệu Android chính thức
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
             startActivity(intent)
         }
 
