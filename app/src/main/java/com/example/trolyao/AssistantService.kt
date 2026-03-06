@@ -96,7 +96,7 @@ class AssistantService : AccessibilityService() {
                 } else {
                     val report = "speak" +
                             "Neural link established. " +
-                            "<prosody rate='1.29'>Welcome back, Sir.</prosody> " +
+                            "<prosody rate='1.29'>Welcome back Sir.</prosody> " +
                         "/speak"
 
                     speak(report)
@@ -155,7 +155,7 @@ class AssistantService : AccessibilityService() {
         val report = "<speak>" +
                 "<prosody pitch='-10%'>Neural core initialized.</prosody> " +
                 "<break time='400ms'/>" +
-                "<prosody rate='1.28'>Welcome back, </prosody> " + // Chữ back lướt nhanh hơn ở đây
+                "<prosody rate='1.29'>Welcome back </prosody> " + // Chữ back lướt nhanh hơn ở đây
                 "sir." + // Nhấn mạnh chữ Sir trầm xuống để chốt hạ
                 "</speak>"
 
@@ -639,7 +639,7 @@ class AssistantService : AccessibilityService() {
             frontLightView?.let { view ->
                 view.animate()
                     .alpha(0f) // Giảm độ trong suốt về 0
-                    .setDuration(2000) // Thời gian giảm
+                    .setDuration(3000) // Thời gian giảm
                     .withEndAction {
                         performLock() // khoá màn hình (tắt đèn ngay lập tức)
                         // Sau khi chạy xong hiệu ứng thì mới xóa View

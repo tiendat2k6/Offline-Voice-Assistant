@@ -21,10 +21,12 @@ class NotificationService : NotificationListenerService() {
     private val targetApps = listOf("com.zing.zalo", "com.facebook.orca", "com.google.android.gm")
 
     private val relationshipMap = mapOf(
-        "Mẹ" to "your mother",
+        "Thu" to "your mother",
         "Bố" to "your father",
         "Thien Quang" to "your student",
-        "Nhóm: Gia đình mình" to "your family group"
+        "Vũ Nam Việt" to "your lazy student",
+        "Nhóm: Gia đình mình" to "your family group",
+        "Nhóm:" to "group"
     )
 
     fun removeAccents(input: String): String {
@@ -69,7 +71,8 @@ class NotificationService : NotificationListenerService() {
 
         // kiểm tra nếu không phải spam thì đọc
         if (currentTime - lastTime > COOLDOWN_TIME) {
-            speak("Sir, you have a message from $finalTitle.", isInterrupt = false)
+            val statement = "That was $finalTitle, sir."
+            speak(statement, isInterrupt = false)
 
             // xoá dữ liệu để tránh tràn
             if (lastReadMap.size > 100) lastReadMap.clear()
