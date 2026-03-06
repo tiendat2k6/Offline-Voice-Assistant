@@ -96,7 +96,7 @@ class AssistantService : AccessibilityService() {
                 } else {
                     val report = "speak" +
                             "Neural link established. " +
-                            "<prosody rate='1.28'>Welcome back, Sir.</prosody> " +
+                            "<prosody rate='1.29'>Welcome back, Sir.</prosody> " +
                         "/speak"
 
                     speak(report)
@@ -490,7 +490,7 @@ class AssistantService : AccessibilityService() {
         // Câu lệnh bắt đầu: Thể hiện sự nghiêm túc
         val report = "<speak>" +
                 "Manual override engaged. <break time='400ms'/>" +
-                "<prosody rate='0.9' pitch='-10%'> <emphasis level='moderate'>accelerate</emphasis> execution to maximum,</prosody> " +
+                "<prosody rate='0.9' pitch='-10%'> <emphasis level='moderate'>accelerate</emphasis> execution to <emphasis level='moderate'>maximum</emphasis>,</prosody> " +
                 "<break time='200ms'/>Sir." +
                 "</speak>"
 

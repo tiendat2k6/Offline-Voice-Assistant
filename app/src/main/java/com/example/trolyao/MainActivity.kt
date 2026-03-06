@@ -5,10 +5,14 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.widget.TextView
 import android.provider.Settings
 import android.widget.Button
 import android.widget.Toast
@@ -19,38 +23,113 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
 import android.os.PowerManager
+import android.view.WindowInsets
+import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val layout = LinearLayout(this)
-        layout.orientation = LinearLayout.VERTICAL
-        layout.gravity = Gravity.CENTER
+        // đổi màu nền thanh pin, wifi,... thành đen
+        window.statusBarColor = Color.parseColor("#000000")
 
-        val btnSetup = Button(this)
-        btnSetup.text = "CẤP QUYỀN ĐẦY ĐỦ"
+        // 1. Root layout - nền đen sâu
+        val mainLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#000000"))
+            setPadding(60, 60, 60, 60)
+        }
+
+        // Header - Logo/tên hệ thống
+        val txtTitle = TextView(this).apply {
+            text = "JARVIS SYSTEM CORE"
+            setTextColor(Color.parseColor("#00FFFF"))
+            textSize = 24f
+            typeface = Typeface.create("sans-serif-thin", Typeface.BOLD)
+            gravity = Gravity.CENTER
+            letterSpacing = 0.2f
+        }
+
+        val txtStatus = TextView(this).apply {
+            text = "STATUS: WAITING FOR PERMISSIONS..."
+            setTextColor(Color.parseColor("#455A64")) // màu xám lạnh
+            textSize = 12f
+            setPadding(0, 10, 0, 80)
+            typeface = Typeface.MONOSPACE
+        }
+
+        // Nút bấm
+        val btnSetup = createCyberButton("INITIALIZE PERMISSIONS", "#00FFFF")
+        val btnStop = createCyberButton("ACCESSIBILITY INTERFACE", "#00FFFF")
+
+        // khoảng trắng giữa các nút
+        val params = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, // rộng hết màn hình
+            LinearLayout.LayoutParams.WRAP_CONTENT // chiều cao sẽ được thay đổi theo nội dung
+        ). apply { setMargins(0, 50, 0, 50) }
+
+
+        // Logic xử lý
         btnSetup.setOnClickListener { checkAllPermissions() }
 
-        val btnStop = Button(this)
-        btnStop.text = "MỞ CÀI ĐẶT TRỢ NĂNG"
         btnStop.setOnClickListener {
             val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
                 val serviceName = ComponentName(packageName, AssistantService::class.java.name).flattenToString()
-
-                // Thêm flag và dữ liệu định danh dịch vụ
-                putExtra("android.provider.extra.SERVICE_COMPONENT_NAME", serviceName) // Thử dùng Key chuẩn theo tài liệu Android chính thức
+                putExtra("android.provider.extra.SERVICE_COMPONENT_NAME", serviceName)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             startActivity(intent)
         }
 
-        layout.addView(btnSetup)
-        layout.addView(btnStop)
-        setContentView(layout)
+
+        // Add views
+        mainLayout.addView(txtTitle)
+        mainLayout.addView(txtStatus)
+        mainLayout.addView(btnSetup, params)
+        mainLayout.addView(btnStop, params)
+
+        setContentView(mainLayout)
+
+        // Code ẩn thanh trạng thái an toàn:
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, mainLayout).let { controller ->
+            controller.hide(WindowInsetsCompat.Type.statusBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
+        // Ẩn Action Bar cho giao diện tràn viền
+        supportActionBar?.hide()
 
         checkAllPermissions()
+    }
+
+
+    // Hàm tạo nút bấm phong cách công nghệ cao
+    private fun createCyberButton(label: String, colorHex: String): Button {
+        return Button(this).apply {
+            text = label
+//            textSize = 20
+            setTextColor(Color.parseColor(colorHex))
+            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+            isAllCaps = true
+            letterSpacing = 0.1f
+
+            // tạo background dạng viền (outline)
+            val gd = GradientDrawable().apply {
+                setColor(Color.TRANSPARENT)
+                setStroke(4, Color.parseColor(colorHex)) // viền mỏng
+                cornerRadius = 10f // bo góc nhẹ
+            }
+            background = gd
+
+            // cài đặt padding
+            setPadding(40, 40, 40, 40)
+        }
     }
 
     private fun checkAllPermissions() {
