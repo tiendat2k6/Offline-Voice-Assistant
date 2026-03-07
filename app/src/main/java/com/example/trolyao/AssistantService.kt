@@ -94,10 +94,10 @@ class AssistantService : AccessibilityService() {
                     speak("Entering hibernate mode.")
                     Log.d("JARVIS_DEBUG", "Hệ thống tạm dừng (Sleep)")
                 } else {
-                    val report = "speak" +
+                    val report = "<speak>" +
                             "Neural link established. " +
-                            "<prosody rate='1.29'>Welcome back Sir.</prosody> " +
-                        "/speak"
+                            "<prosody rate='1.3'>Welcome back Sir.</prosody> " +
+                        "</speak>"
 
                     speak(report)
                     Log.d("JARVIS_DEBUG", "Hệ thống hoạt động trở lại")
@@ -155,7 +155,7 @@ class AssistantService : AccessibilityService() {
         val report = "<speak>" +
                 "<prosody pitch='-10%'>Neural core initialized.</prosody> " +
                 "<break time='400ms'/>" +
-                "<prosody rate='1.29'>Welcome back </prosody> " + // Chữ back lướt nhanh hơn ở đây
+                "<prosody rate='1.3'>Welcome back </prosody> " + // Chữ back lướt nhanh hơn ở đây
                 "sir." + // Nhấn mạnh chữ Sir trầm xuống để chốt hạ
                 "</speak>"
 

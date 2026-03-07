@@ -6,6 +6,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.example.trolyao.JarvisVoice.speak
 import java.text.Normalizer
+import java.util.Locale
 import java.util.regex.Pattern
 
 class NotificationService : NotificationListenerService() {
@@ -20,13 +21,15 @@ class NotificationService : NotificationListenerService() {
     // lọc: chỉ đọc nếu là Zalo, Messenger, Gmail
     private val targetApps = listOf("com.zing.zalo", "com.facebook.orca", "com.google.android.gm")
 
+    // Nếu đã có câu thay thế bằng tiếng anh thì không cần set qua tiếng việt nữa
+    private var isEnglishName = false
+
     private val relationshipMap = mapOf(
         "Thu" to "your mother",
-        "Bố" to "your father",
+        "Trung" to "your father",
         "Thien Quang" to "your student",
         "Vũ Nam Việt" to "your lazy student",
         "Nhóm: Gia đình mình" to "your family group",
-        "Nhóm:" to "group"
     )
 
     fun removeAccents(input: String): String {
@@ -62,7 +65,14 @@ class NotificationService : NotificationListenerService() {
 
         // Tìm kiếm thông minh: nếu title chứa từ khóa trong Map (ví dụ "Mẹ (2 tin nhắn))
         val matchedKey = relationshipMap.keys.find {rawTitle.contains(it) }
-        val finalTitle = if (matchedKey != null) relationshipMap[matchedKey] else removeAccents(rawTitle)
+        val finalTitle = if (matchedKey != null) {
+            isEnglishName = true
+            relationshipMap[matchedKey] // Giá trị này sẽ được gán cho finalTitl
+        }
+        else {
+            isEnglishName = false
+            removeAccents(rawTitle)
+        }
 
 
         // xử lý
@@ -71,11 +81,23 @@ class NotificationService : NotificationListenerService() {
 
         // kiểm tra nếu không phải spam thì đọc
         if (currentTime - lastTime > COOLDOWN_TIME) {
-            val statement = "That was $finalTitle, sir."
-            speak(statement, isInterrupt = false)
+
+            if (isEnglishName) {
+                speak("You have a new message from $finalTitle, Sir")
+            }
+            else {
+                // Quan trọng: nếu có thằng nào gọi speak với isInterrupt = true -> nó huỷ luôn lệnh set lại tiếng anh
+                speak("You have a new message from") {
+                    JarvisVoice.setLanguage(Locale.forLanguageTag("vi-VN"))
+                    speak("$finalTitle") {
+                        JarvisVoice.setLanguage(Locale.UK)
+                        speak("Sir.")
+                    }
+                }
+            }
 
             // xoá dữ liệu để tránh tràn
-            if (lastReadMap.size > 100) lastReadMap.clear()
+            if (lastReadMap.size > 20) lastReadMap.clear()
             // cập nhật lại thời điểm đọc cuối cùng cho người này
             lastReadMap[finalTitle!!] = currentTime
         }

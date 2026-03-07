@@ -54,7 +54,7 @@ object JarvisVoice {
     fun speak(text: String, isInterrupt: Boolean = false, onComplete: (() -> Unit)? = null) {
         if (!isReady) return
 
-        // 1. Nếu ngắt lời, phải dọn sạch Map cũ để tránh rò rỉ bộ nhớ
+        // 1. Nếu ngắt lời, phải dọn sạch Map cũ để tránh rò rỉ bộ nhớ và câu cũ chết rồi vẫn gọi onDone
         if (isInterrupt) { ttsCallbacks.clear() }
 
         // tạo một ID duy nhất cho mỗi lần nói để không bị lẫn callback
@@ -78,6 +78,12 @@ object JarvisVoice {
             tts = null
             isReady = false
             ttsCallbacks.clear()
+        }
+    }
+
+    fun setLanguage(locale: Locale) {
+        tts?.apply {
+            language = locale
         }
     }
 }
