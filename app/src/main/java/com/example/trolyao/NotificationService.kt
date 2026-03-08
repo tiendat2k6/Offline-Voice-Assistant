@@ -32,11 +32,11 @@ class NotificationService : NotificationListenerService() {
         "Nhóm: Gia đình mình" to "your family group",
     )
 
-    fun removeAccents(input: String): String {
-        val temp = Normalizer.normalize(input, Normalizer.Form.NFD)
-        val pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+")
-        return pattern.matcher(temp).replaceAll("").replace('đ', 'd').replace('Đ', 'D')
-    }
+//    fun removeAccents(input: String): String {
+//        val temp = Normalizer.normalize(input, Normalizer.Form.NFD)
+//        val pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+")
+//        return pattern.matcher(temp).replaceAll("").replace('đ', 'd').replace('Đ', 'D')
+//    }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         // Kiểm tra nếu gói dữ liệu bị rỗng
@@ -71,7 +71,8 @@ class NotificationService : NotificationListenerService() {
         }
         else {
             isEnglishName = false
-            removeAccents(rawTitle)
+            rawTitle
+//            removeAccents(rawTitle)
         }
 
 
@@ -91,7 +92,7 @@ class NotificationService : NotificationListenerService() {
                     JarvisVoice.setLanguage(Locale.forLanguageTag("vi-VN"))
                     speak("$finalTitle") {
                         JarvisVoice.setLanguage(Locale.UK)
-                        speak("Sir.")
+//                        speak("Sir.")
                     }
                 }
             }

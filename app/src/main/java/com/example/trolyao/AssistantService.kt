@@ -109,11 +109,14 @@ class AssistantService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
 
-        // chào hỏi ngay khi mở quyền trợ năng
-        startupGreeting()
+        JarvisVoice.init(applicationContext)
 
         // 1. PHẢI GỌI HÀM NÀY ĐẦU TIÊN ĐỂ MỞ CỔNG THÔNG BÁO
         createNotificationChannel()
+
+        // chào hỏi ngay khi mở quyền trợ năng
+//        startupGreeting() // tạm bỏ vì chưa có tính năng đợi engine khởi động xong
+
 
         // 2. BIẾN JARVIS THÀNH FOREGROUND SERVICE ĐỂ KHÔNG BỊ DIỆT
         // Điều này sẽ hiện cái thông báo "Jarvis is listening..." lên ngay lập tức
