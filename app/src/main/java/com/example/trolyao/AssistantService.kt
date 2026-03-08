@@ -96,7 +96,7 @@ class AssistantService : AccessibilityService() {
                 } else {
                     val report = "<speak>" +
                             "Neural link established. " +
-                            "<prosody rate='1.3'>Welcome back Sir.</prosody> " +
+                            "<prosody rate='1.2'>How can I help you, Sir?</prosody> " +
                         "</speak>"
 
                     speak(report)
@@ -109,13 +109,14 @@ class AssistantService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
 
-        JarvisVoice.init(applicationContext)
+        JarvisVoice.init(applicationContext) { success ->
+            if (success) {
+                startupGreeting() // chào khi tts đã sẵn sàng
+            }
+        }
 
         // 1. PHẢI GỌI HÀM NÀY ĐẦU TIÊN ĐỂ MỞ CỔNG THÔNG BÁO
         createNotificationChannel()
-
-        // chào hỏi ngay khi mở quyền trợ năng
-//        startupGreeting() // tạm bỏ vì chưa có tính năng đợi engine khởi động xong
 
 
         // 2. BIẾN JARVIS THÀNH FOREGROUND SERVICE ĐỂ KHÔNG BỊ DIỆT
@@ -143,27 +144,16 @@ class AssistantService : AccessibilityService() {
 
     // Hàm chào hỏi lúc mới bật Service
     private fun startupGreeting() {
-        // Xác định buổi dựa trên Calendar (vì Date() không lấy được hour dễ dàng)
-//        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-//        val greetingPrefix = when (hour) {
-//            in 5..11 -> "Good morning"
-//            in 12..17 -> "Good afternoon"
-//            in 18..22 -> "Good evening"
-//            else -> "Good night"
-//        }
-
-        // 1. Chỉnh lại chuỗi report với các thẻ nghỉ (break)
-        // 1.15f là khá nhanh, nên để quãng nghỉ dài hơn một chút để bù đắp
-
         val report = "<speak>" +
-                "<prosody pitch='-10%'>Neural core initialized.</prosody> " +
+                "<prosody pitch='-10%'>All <emphasis level='strong'>systems</emphasis> active.</prosody> " +
                 "<break time='400ms'/>" +
-                "<prosody rate='1.3'>Welcome back </prosody> " + // Chữ back lướt nhanh hơn ở đây
-                "sir." + // Nhấn mạnh chữ Sir trầm xuống để chốt hạ
+                "<prosody rate='1.2'> <emphasis level='moderate'>Welcome</emphasis> <emphasis level='reduced'>back</emphasis>, </prosody>" + // Dấu phẩy tạo độ nghỉ tự nhiên cho "back"
+                "<prosody pitch='-15%'>sir.</prosody>" + // Hạ thấp tone ở cuối để nghe "Jarvis" hơn
                 "</speak>"
 
-        JarvisVoice.speak(report)
+        speak(report)
     }
+
 
     private fun initPicovoice() {
         try {
@@ -664,13 +654,26 @@ class AssistantService : AccessibilityService() {
         }
     }
 
+    // chào lần cuối trước khi bị android giết
+    override fun onUnbind(intent: Intent?): Boolean {
+        val goodbyeReport = "<speak>" +
+                "<prosody pitch='-10%' rate='0.92'><emphasis level='strong'>Jarvis</emphasis> offline.</prosody>" +
+                "<break time='500ms'/>" +
+                "<prosody pitch='-20%' rate='1.0'><emphasis level='strong'>Good</emphasis> bye, master.</prosody>" +
+                "</speak>"
+
+        speak(goodbyeReport) {
+            JarvisVoice.shutdown() // QUAN TRỌNG: Giết sạch "bóng ma" TTS
+        }
+        return false // Rất quan trọng: Báo cho Android không dùng lại instance này
+    }
+
     override fun onDestroy() {
         isRunning = false
         unregisterReceiver(notificationReceiver)
         wakeLock?.release()
         audioRecord?.stop(); audioRecord?.release()
         porcupine?.delete(); rhino?.delete()
-        JarvisVoice.shutdown() // QUAN TRỌNG: Giết sạch "bóng ma" TTS
         super.onDestroy()
     }
 

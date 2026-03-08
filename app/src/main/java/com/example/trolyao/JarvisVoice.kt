@@ -18,14 +18,22 @@ object JarvisVoice {
     private val handler = Handler(Looper.getMainLooper())
 
     // Hàm khởi tạo giọng nói:
-    fun init(context: Context) {
+    fun init(context: Context, onResult: (Boolean) -> Unit) {
         if (tts == null) {
             tts = TextToSpeech(context) {status ->
                 if (status == TextToSpeech.SUCCESS) {
                     setupTTS()
                     isReady = true
+                    onResult(true) // báo về là đã sẵn sàng
+                }
+                else {
+                    onResult(false) // báo thất bại
                 }
             }
+        }
+        else {
+            // nếu tts đã tồn tại rồi thì báo success luôn
+            onResult(true)
         }
     }
 
