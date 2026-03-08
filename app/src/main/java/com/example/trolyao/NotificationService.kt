@@ -21,9 +21,6 @@ class NotificationService : NotificationListenerService() {
     // lọc: chỉ đọc nếu là Zalo, Messenger, Gmail
     private val targetApps = listOf("com.zing.zalo", "com.facebook.orca", "com.google.android.gm")
 
-    // Nếu đã có câu thay thế bằng tiếng anh thì không cần set qua tiếng việt nữa
-    private var isEnglishName = false
-
     private val relationshipMap = mapOf(
         "Thu" to "your mother",
         "Trung" to "your father",
@@ -32,11 +29,12 @@ class NotificationService : NotificationListenerService() {
         "Nhóm: Gia đình mình" to "your family group",
     )
 
-//    fun removeAccents(input: String): String {
-//        val temp = Normalizer.normalize(input, Normalizer.Form.NFD)
-//        val pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+")
-//        return pattern.matcher(temp).replaceAll("").replace('đ', 'd').replace('Đ', 'D')
-//    }
+    fun processTitle(input: String): Pair<String, Boolean> {
+        val temp = Normalizer.normalize(input, Normalizer.Form.NFD)
+        // nếu độ dài temp khác input thì chắc chắn do có dấu -> cần đổi ngôn ngữ
+        val hasAccent = input.length != temp.length || input.contains("đ", ignoreCase = true)
+        return Pair(input, hasAccent)
+    }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         // Kiểm tra nếu gói dữ liệu bị rỗng
@@ -63,16 +61,16 @@ class NotificationService : NotificationListenerService() {
         // bóc tách tên người gửi
         val rawTitle = extras.getString(Notification.EXTRA_TITLE) ?: "Someone"
 
-        // Tìm kiếm thông minh: nếu title chứa từ khóa trong Map (ví dụ "Mẹ (2 tin nhắn))
+        // Tìm kiếm: nếu title chứa từ khóa trong Map (ví dụ "Mẹ (2 tin nhắn))
         val matchedKey = relationshipMap.keys.find {rawTitle.contains(it) }
-        val finalTitle = if (matchedKey != null) {
-            isEnglishName = true
-            relationshipMap[matchedKey] // Giá trị này sẽ được gán cho finalTitl
+
+        val (finalTitle, isVietnamese) = if (matchedKey != null) {
+            // Nếu khớp Map -> Dùng tiếng Anh (false)
+            relationshipMap[matchedKey] to false
         }
         else {
-            isEnglishName = false
-            rawTitle
-//            removeAccents(rawTitle)
+            // Không khớp -> Check xem có dấu không để đọc tiếng việt
+            processTitle(rawTitle)
         }
 
 
@@ -83,7 +81,7 @@ class NotificationService : NotificationListenerService() {
         // kiểm tra nếu không phải spam thì đọc
         if (currentTime - lastTime > COOLDOWN_TIME) {
 
-            if (isEnglishName) {
+            if (isVietnamese == false) {
                 speak("You have a new message from $finalTitle, Sir")
             }
             else {
