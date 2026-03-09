@@ -483,7 +483,7 @@ class AssistantService : AccessibilityService() {
         // Câu lệnh bắt đầu: Thể hiện sự nghiêm túc
         val report = "<speak>" +
                 "Manual override engaged. <break time='400ms'/>" +
-                "<prosody rate='0.9' pitch='-10%'> <emphasis level='moderate'>accelerate</emphasis> execution to <emphasis level='moderate'>maximum</emphasis>,</prosody> " +
+                "<prosody rate='0.9' pitch='-10%'> <emphasis level='moderate'>accelerate</emphasis>, execution to <emphasis level='moderate'>maximum</emphasis>,</prosody> " +
                 "<break time='200ms'/>Sir." +
                 "</speak>"
 

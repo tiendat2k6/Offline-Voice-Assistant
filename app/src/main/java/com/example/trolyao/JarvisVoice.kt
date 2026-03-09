@@ -61,7 +61,7 @@ object JarvisVoice {
 
             voice = engVoice ?: voice
 
-            setPitch(0.92f)
+//            setPitch(0.92f)
 //            setSpeechRate(1.0f)
 
             setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -116,10 +116,12 @@ object JarvisVoice {
             speak(englishPart, isInterrupt = false)
 
             // set giọng việt và xếp hàng đọc tiếp ngay lập tức kèm callback khi kết thúc toàn bộ
+            setSpeechRate(1.25f) // tăng tốc tiếng việt.
             voice = vieVoice
             speak(vietnamesePart, isInterrupt = false, onComplete = onComplete)
 
             // set lại giọng anh cho những câu nói khác.
+            setSpeechRate(1.0f) // reset lại tốc độ
             voice = engVoice
         }
     }
