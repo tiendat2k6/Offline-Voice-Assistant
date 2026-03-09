@@ -5,6 +5,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.example.trolyao.JarvisVoice.speak
+import com.example.trolyao.JarvisVoice.speakHybrid
 import java.text.Normalizer
 import java.util.Locale
 import java.util.regex.Pattern
@@ -26,7 +27,7 @@ class NotificationService : NotificationListenerService() {
         "Trung" to "your father",
         "Thien Quang" to "your student",
         "Vũ Nam Việt" to "your lazy student",
-        "Nhóm: Gia đình mình" to "your family group",
+        "Gia đình mình" to "your family group",
     )
 
     fun processTitle(input: String): Pair<String, Boolean> {
@@ -85,14 +86,7 @@ class NotificationService : NotificationListenerService() {
                 speak("You have a new message from $finalTitle, Sir")
             }
             else {
-                // Quan trọng: nếu có thằng nào gọi speak với isInterrupt = true -> nó huỷ luôn lệnh set lại tiếng anh
-                speak("You have a new message from") {
-                    JarvisVoice.setLanguage(Locale.forLanguageTag("vi-VN"))
-                    speak("$finalTitle") {
-                        JarvisVoice.setLanguage(Locale.UK)
-//                        speak("Sir.")
-                    }
-                }
+                speakHybrid("You have a new message from", "$finalTitle")
             }
 
             // xoá dữ liệu để tránh tràn

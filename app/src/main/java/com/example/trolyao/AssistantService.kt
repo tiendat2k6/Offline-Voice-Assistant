@@ -147,7 +147,7 @@ class AssistantService : AccessibilityService() {
         val report = "<speak>" +
                 "<prosody pitch='-10%'>All <emphasis level='strong'>systems</emphasis> active.</prosody> " +
                 "<break time='400ms'/>" +
-                "<prosody rate='1.2'> <emphasis level='moderate'>Welcome</emphasis> <emphasis level='reduced'>back</emphasis>, </prosody>" + // Dấu phẩy tạo độ nghỉ tự nhiên cho "back"
+                "<prosody rate='1.25'> <emphasis level='moderate'>Welcome</emphasis> <emphasis level='reduced'>back</emphasis>, </prosody>" + // Dấu phẩy tạo độ nghỉ tự nhiên cho "back"
                 "<prosody pitch='-15%'>sir.</prosody>" + // Hạ thấp tone ở cuối để nghe "Jarvis" hơn
                 "</speak>"
 
@@ -437,7 +437,7 @@ class AssistantService : AccessibilityService() {
 
         // --- HẸN GIỜ 10 PHÚT (600.000 ms) ---
         handler.postDelayed({
-            speak("Neuro-stabilization complete. Your mind is now optimized, sir.")
+            speak("Your mind is now optimized, sir.")
 
             isBlackoutRunning = false
 

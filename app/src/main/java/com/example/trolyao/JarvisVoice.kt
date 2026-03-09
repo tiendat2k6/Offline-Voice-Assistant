@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import android.util.Log
 import java.util.Locale
 
@@ -16,6 +17,9 @@ object JarvisVoice {
     // lưu trữ các hành động chờ thực hiện sau khi nói xong
     private val ttsCallbacks = mutableMapOf<String, () -> Unit>()
     private val handler = Handler(Looper.getMainLooper())
+
+    private var engVoice: Voice? = null
+    private var vieVoice: Voice? = null
 
     // Hàm khởi tạo giọng nói:
     fun init(context: Context, onResult: (Boolean) -> Unit) {
@@ -39,9 +43,26 @@ object JarvisVoice {
 
     private fun setupTTS() {
         tts?.apply{
-            language = Locale.UK
+            // lấy danh sách tất cả các giọng máy hộ trợ
+//            val availableVoices = voices
+//
+//            availableVoices.forEach { voice ->
+//                // In: tên giọng, ngôn ngữ, độ chi tiết (quality), có đang cần mạng không
+//                Log.i("JARVIS", "Voice: ${voice.name} | Locale: ${voice.locale} | Quality: ${voice.quality} | IsNetwork: ${voice.isNetworkConnectionRequired}")
+//            }
+
+            // Cache lại để dùng ngay lập tức, không tốn thời gian tìm kiếm
+            engVoice = voices.find { it.name == "en-gb-x-gba-local" }
+            vieVoice = voices.find { it.name == "vi-vn-x-vic-local" }
+
+            // nếu không tìm thấy voice cụ thể, set Locale làm backup
+            if (engVoice == null) language = Locale.UK
+            if (vieVoice == null) language = Locale.forLanguageTag("vi-VN")
+
+            voice = engVoice ?: voice
+
             setPitch(0.92f)
-            setSpeechRate(1.0f)
+//            setSpeechRate(1.0f)
 
             setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceID: String?) {}
@@ -89,9 +110,17 @@ object JarvisVoice {
         }
     }
 
-    fun setLanguage(locale: Locale) {
+    fun speakHybrid(englishPart: String, vietnamesePart: String, onComplete: (() -> Unit)? = null) {
         tts?.apply {
-            language = locale
+            // đọc phần đầu bằng tiếng anh
+            speak(englishPart, isInterrupt = false)
+
+            // set giọng việt và xếp hàng đọc tiếp ngay lập tức kèm callback khi kết thúc toàn bộ
+            voice = vieVoice
+            speak(vietnamesePart, isInterrupt = false, onComplete = onComplete)
+
+            // set lại giọng anh cho những câu nói khác.
+            voice = engVoice
         }
     }
 }
