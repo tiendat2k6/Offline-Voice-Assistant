@@ -425,8 +425,7 @@ class AssistantService : AccessibilityService() {
         // speak("Protocol Blackout initiated... Target neutralized, sir.")
 
         val report = "<speak>" +
-                "Dopamine receptors stabilizing. Neuro-reset in progress. <break time=\"800ms\"/>" +
-                "You are training your neural weights right now, Sir." +
+                "Dopamine receptors are stabilizing. <break time=\"800ms\"/> Neuro-reset is now in progress, Sir" +
                 "</speak>"
 
         speak(report)
@@ -483,7 +482,7 @@ class AssistantService : AccessibilityService() {
         // Câu lệnh bắt đầu: Thể hiện sự nghiêm túc
         val report = "<speak>" +
                 "Manual override engaged. <break time='400ms'/>" +
-                "<prosody rate='0.9' pitch='-10%'> <emphasis level='moderate'>accelerate</emphasis>, execution to <emphasis level='moderate'>maximum</emphasis>,</prosody> " +
+                "<prosody rate='0.9' pitch='-10%'> <emphasis level='moderate'>accelerate</emphasis> execution to <emphasis level='moderate'>maximum</emphasis>,</prosody> " +
                 "<break time='200ms'/>Sir." +
                 "</speak>"
 
@@ -514,7 +513,7 @@ class AssistantService : AccessibilityService() {
             Log.d("Assistant", "Hết 10 phút Relax!")
 
             val report = "<speak>" + "Synaptic noise eliminated." +
-                    "<break time='400ms'/>Your cognitive engine is now ready, Sir." + "</speak>"
+                    "<break time='600ms'/>Your cognitive engine is now ready, Sir." + "</speak>"
             speak(report)
 
         }, 600000)

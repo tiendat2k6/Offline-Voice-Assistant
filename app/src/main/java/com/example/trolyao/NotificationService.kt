@@ -83,10 +83,10 @@ class NotificationService : NotificationListenerService() {
         if (currentTime - lastTime > COOLDOWN_TIME) {
 
             if (isVietnamese == false) {
-                speak("You have a new notification from $finalTitle, Sir")
+                speak("You have a new message from $finalTitle, Sir")
             }
             else {
-                speakHybrid("Sir. You have a new message from", "$finalTitle")
+                speakHybrid("Sir. You have a new message from ", "$finalTitle")
             }
 
             // xoá dữ liệu để tránh tràn
