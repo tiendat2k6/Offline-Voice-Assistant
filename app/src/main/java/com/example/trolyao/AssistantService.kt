@@ -425,7 +425,7 @@ class AssistantService : AccessibilityService() {
         // speak("Protocol Blackout initiated... Target neutralized, sir.")
 
         val report = "<speak>" +
-                "Dopamine receptors are stabilizing. <break time=\"800ms\"/> Neuro-reset is now in progress, Sir" +
+                "Dopamine receptors stabilizing. <break time=\"800ms\"/> Neuro-reset is now in progress, Sir" +
                 "</speak>"
 
         speak(report)
@@ -506,14 +506,14 @@ class AssistantService : AccessibilityService() {
     // --- 5. TÍNH NĂNG RELAX (HẸN GIỜ 10 PHÚT) ---
     private fun startRelaxTimer() {
         systemTaskHandler.removeCallbacksAndMessages(null)
-        speak("Relaxation protocol initiated. Enjoy your downtime, Sir.")
+        speak("Relaxation protocol initiated... Enjoy your downtime, Sir.")
 
         // Hẹn giờ 10 phút (600,000 ms)
         systemTaskHandler.postDelayed({
             Log.d("Assistant", "Hết 10 phút Relax!")
 
             val report = "<speak>" + "Synaptic noise eliminated." +
-                    "<break time='600ms'/>Your cognitive engine is now ready, Sir." + "</speak>"
+                    "<break time='700ms'/>Your cognitive engine is now ready, Sir." + "</speak>"
             speak(report)
 
         }, 600000)
@@ -631,7 +631,7 @@ class AssistantService : AccessibilityService() {
             frontLightView?.let { view ->
                 view.animate()
                     .alpha(0f) // Giảm độ trong suốt về 0
-                    .setDuration(3000) // Thời gian giảm
+                    .setDuration(2000) // Thời gian giảm
                     .withEndAction {
                         performLock() // khoá màn hình (tắt đèn ngay lập tức)
                         // Sau khi chạy xong hiệu ứng thì mới xóa View
@@ -656,9 +656,9 @@ class AssistantService : AccessibilityService() {
     // chào lần cuối trước khi bị android giết
     override fun onUnbind(intent: Intent?): Boolean {
         val goodbyeReport = "<speak>" +
-                "<prosody pitch='-10%' rate='0.92'><emphasis level='strong'>Jarvis</emphasis> offline.</prosody>" +
+                "<prosody pitch='-10%' rate='0.95'><emphasis level='strong'>Jarvis</emphasis> offline.</prosody>" +
                 "<break time='500ms'/>" +
-                "<prosody pitch='-20%' rate='1.0'><emphasis level='strong'>Good</emphasis> bye, master.</prosody>" +
+                "<prosody pitch='-20%' rate='1.1'><emphasis level='strong'>Good</emphasis> bye, master.</prosody>" +
                 "</speak>"
 
         speak(goodbyeReport) {

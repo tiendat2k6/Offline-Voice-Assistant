@@ -31,7 +31,7 @@ object JarvisVoice {
                     onResult(true) // báo về là đã sẵn sàng
 
                     // test ngay khi vừa load xong để nghe thử
-//                    handler.postDelayed({ testNotification() }, 3000)
+//                    handler.postDelayed({ testNotification() }, 5000)
                 }
                 else {
                     onResult(false) // báo thất bại
@@ -119,7 +119,7 @@ object JarvisVoice {
             speak(englishPart, isInterrupt = false)
 
             // set giọng việt và xếp hàng đọc tiếp ngay lập tức kèm callback khi kết thúc toàn bộ
-            setSpeechRate(1.05f) // tăng tốc tiếng việt.
+            setSpeechRate(1.07f) // tăng tốc tiếng việt.
             voice = vieVoice
             speak(vietnamesePart, isInterrupt = false, onComplete = onComplete)
 
@@ -130,13 +130,13 @@ object JarvisVoice {
     }
 
     private fun testNotification() {
-        val vieTitle = "Nhật Tân"
-        speakHybrid("Sir. You have a new message from ", "$vieTitle")
+        val vieTitle = "1 cái tên rất rất dài: chỉ để xem nó chuẩn bị đọc có lâu ở lần đầu tiên hay không thôi."
+        speakHybrid("Sir, you have a new message from ", "$vieTitle")
 
         // nghỉ 1 giây giữa 2 giọng
-        tts?.playSilentUtterance(1000L, TextToSpeech.QUEUE_ADD, "PAUSE_ID")
-
-        val finalTitle = "your mother"
-        speak("You have a new message from $finalTitle, Sir")
+//        tts?.playSilentUtterance(1000L, TextToSpeech.QUEUE_ADD, "PAUSE_ID")
+//
+//        val finalTitle = "your mother"
+//        speak("You have a new message from $finalTitle, Sir")
     }
 }

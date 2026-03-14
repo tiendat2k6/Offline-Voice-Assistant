@@ -17,7 +17,7 @@ class NotificationService : NotificationListenerService() {
     private val lastReadMap = mutableMapOf<String, Long>()
 
     // khoảng cách thời gian tối thiểu giữa 2 lần đọc
-    private val COOLDOWN_TIME = 30000L
+    private val COOLDOWN_TIME = 60000L
 
     // lọc: chỉ đọc nếu là Zalo, Messenger, Gmail
     private val targetApps = listOf("com.zing.zalo", "com.facebook.orca", "com.google.android.gm")
@@ -28,6 +28,7 @@ class NotificationService : NotificationListenerService() {
         "Thien Quang" to "your student",
         "Vũ Nam Việt" to "your lazy student",
         "Gia đình mình" to "your family group",
+        "Ông cháu thành" to "your family group"
     )
 
     fun processTitle(input: String): Pair<String, Boolean> {
@@ -47,6 +48,10 @@ class NotificationService : NotificationListenerService() {
         // loại bỏ thông báo tóm tắt (group summary) của hệ thống
         if ((notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
 
+        // 1. Lọc thông báo có độ ưu tiên thấp (Mức MIN hoặc LOW thường là tiến trình ngầm)
+        // Notification.PRIORITY_DEFAULT (0) trở lên mới là tin nhắn quan trọng
+        if (notification.priority < Notification.PRIORITY_DEFAULT) return
+
         // -------------------------------------------------------------------------
 
         // lấy tên package (id của ứng dụng gửi thông báo)
@@ -61,6 +66,17 @@ class NotificationService : NotificationListenerService() {
 
         // bóc tách tên người gửi
         val rawTitle = extras.getString(Notification.EXTRA_TITLE) ?: "Someone"
+        // lấy nội dung thông báo
+        val rawText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+
+        // kiểm tra xem có phải là hành động "bày tỏ cảm xúc không"
+        val reactionKeywords = listOf("bày tỏ cảm xúc", "đã thả tim", "đã tim", "reacted to")
+        val isReaction = reactionKeywords.any { rawText.lowercase().contains(it) }
+
+        if (isReaction) {
+            speak("Just a reaction, Sir.")
+            return // xong việc, thoát luôn
+        }
 
         // Tìm kiếm: nếu title chứa từ khóa trong Map (ví dụ "Mẹ (2 tin nhắn))
         val matchedKey = relationshipMap.keys.find {rawTitle.contains(it) }
@@ -86,7 +102,7 @@ class NotificationService : NotificationListenerService() {
                 speak("You have a new message from $finalTitle, Sir")
             }
             else {
-                speakHybrid("Sir. You have a new message from ", "$finalTitle")
+                speakHybrid("Sir, you have a new message from ", "$finalTitle")
             }
 
             // xoá dữ liệu để tránh tràn
