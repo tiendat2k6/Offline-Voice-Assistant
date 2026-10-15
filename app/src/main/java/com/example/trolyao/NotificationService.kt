@@ -23,10 +23,6 @@ class NotificationService : NotificationListenerService() {
     private val targetApps = listOf("com.zing.zalo", "com.facebook.orca", "com.google.android.gm")
 
     private val relationshipMap = mapOf(
-        "Thu" to "your mother",
-        "Trung" to "your father",
-        "Thien Quang" to "your student",
-        "Vũ Nam Việt" to "your lazy student",
         "Gia đình mình" to "your family group",
         "Ông cháu thành" to "your family group"
     )

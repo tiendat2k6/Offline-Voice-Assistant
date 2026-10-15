@@ -68,8 +68,8 @@ class AssistantService : AccessibilityService() {
 
     private val flashHandler = Handler(Looper.getMainLooper())
 
-    private val PC_COMMAND_URL = "https://juanita-tragicomic-nonethereally.ngrok-free.dev/lockdown" // Domain Ngrok
-    private val AUTH_TOKEN = "Jarvis-K20-FPT-2026-ngocminh-tiendat" // Mã token bí mật
+    private val PC_COMMAND_URL = "https://da-an-roi-nha.hihi" // Domain Ngrok
+    private val AUTH_TOKEN = "Da an roi nhe , hehe ngu gi ma up len github :)" // Mã token bí mật
 
     private var windowManager: WindowManager? = null
     private var blueScreenView: FrameLayout? = null

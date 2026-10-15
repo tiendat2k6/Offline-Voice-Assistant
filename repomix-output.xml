@@ -1,0 +1,2505 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+app/
+  src/
+    androidTest/
+      java/
+        com/
+          example/
+            trolyao/
+              ExampleInstrumentedTest.kt
+    main/
+      assets/
+        Jarvis_Commands_en_android_v4_0_0.rhn
+      java/
+        com/
+          example/
+            trolyao/
+              AssistantService.kt
+              JarvisVoice.kt
+              LauncherActivity.kt
+              MainActivity.kt
+              MainApplication.kt
+              NotificationService.kt
+      res/
+        drawable/
+          ic_launcher_background.xml
+          ic_launcher_foreground.xml
+        drawable-hdpi/
+          ic_stat_jarvis.png
+        drawable-mdpi/
+          ic_stat_jarvis.png
+        drawable-xhdpi/
+          ic_stat_jarvis.png
+        drawable-xxhdpi/
+          ic_stat_jarvis.png
+        drawable-xxxhdpi/
+          ic_stat_jarvis.png
+        layout/
+          activity_main.xml
+        mipmap-anydpi-v26/
+          ic_launcher_round.xml
+          ic_launcher.xml
+        mipmap-hdpi/
+          ic_launcher_foreground.webp
+          ic_launcher_round.webp
+          ic_launcher.webp
+        mipmap-mdpi/
+          ic_launcher_foreground.webp
+          ic_launcher_round.webp
+          ic_launcher.webp
+        mipmap-xhdpi/
+          ic_launcher_foreground.webp
+          ic_launcher_round.webp
+          ic_launcher.webp
+        mipmap-xxhdpi/
+          ic_launcher_foreground.webp
+          ic_launcher_round.webp
+          ic_launcher.webp
+        mipmap-xxxhdpi/
+          ic_launcher_foreground.webp
+          ic_launcher_round.webp
+          ic_launcher.webp
+        values/
+          colors.xml
+          ic_launcher_background.xml
+          strings.xml
+          themes.xml
+        values-night/
+          themes.xml
+        xml/
+          accessibility_config.xml
+          backup_rules.xml
+          data_extraction_rules.xml
+      AndroidManifest.xml
+      ic_launcher-playstore.png
+    test/
+      java/
+        com/
+          example/
+            trolyao/
+              ExampleUnitTest.kt
+  .gitignore
+  build.gradle.kts
+  proguard-rules.pro
+gradle/
+  wrapper/
+    gradle-wrapper.jar
+    gradle-wrapper.properties
+  libs.versions.toml
+.gitignore
+build.gradle.kts
+gradle.properties
+gradlew
+gradlew.bat
+icon.jpg
+notification_icon.png
+README.md
+settings.gradle.kts
+test.py
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="app/src/androidTest/java/com/example/trolyao/ExampleInstrumentedTest.kt">
+package com.example.trolyao
+
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.ext.junit.runners.AndroidJUnit4
+
+import org.junit.Test
+import org.junit.runner.RunWith
+
+import org.junit.Assert.*
+
+/**
+ * Instrumented test, which will execute on an Android device.
+ *
+ * See [testing documentation](http://d.android.com/tools/testing).
+ */
+@RunWith(AndroidJUnit4::class)
+class ExampleInstrumentedTest {
+    @Test
+    fun useAppContext() {
+        // Context of the app under test.
+        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
+        assertEquals("com.example.trolyao", appContext.packageName)
+    }
+}
+</file>
+
+<file path="app/src/main/java/com/example/trolyao/LauncherActivity.kt">
+package com.example.trolyao
+
+import android.app.Activity
+import android.content.Intent
+import android.os.Bundle
+
+class LauncherActivity : Activity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // 1. Tạo Intent kích hoạt Google Assistant
+        val assistantIntent = Intent(Intent.ACTION_VOICE_COMMAND)
+        assistantIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+
+        try {
+            startActivity(assistantIntent)
+        } catch (e: Exception) {
+            e.printStackTrace() // Phòng trường hợp máy không có Google App
+        }
+
+        // 2. Tắt ngay Activity này để trả lại màn hình cho Assistant
+        finish()
+
+        // 3. Loại bỏ hiệu ứng chuyển cảnh để trông như không có gì xảy ra
+        overridePendingTransition(0, 0)
+    }
+}
+</file>
+
+<file path="app/src/main/res/drawable/ic_launcher_background.xml">
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#3DDC84"
+        android:pathData="M0,0h108v108h-108z" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M9,0L9,108"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M19,0L19,108"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M29,0L29,108"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M39,0L39,108"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M49,0L49,108"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M59,0L59,108"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M69,0L69,108"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M79,0L79,108"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M89,0L89,108"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M99,0L99,108"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M0,9L108,9"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M0,19L108,19"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M0,29L108,29"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M0,39L108,39"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M0,49L108,49"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M0,59L108,59"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M0,69L108,69"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M0,79L108,79"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M0,89L108,89"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M0,99L108,99"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M19,29L89,29"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M19,39L89,39"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M19,49L89,49"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M19,59L89,59"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M19,69L89,69"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M19,79L89,79"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M29,19L29,89"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M39,19L39,89"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M49,19L49,89"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M59,19L59,89"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M69,19L69,89"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M79,19L79,89"
+        android:strokeWidth="0.8"
+        android:strokeColor="#33FFFFFF" />
+</vector>
+</file>
+
+<file path="app/src/main/res/drawable/ic_launcher_foreground.xml">
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M31,63.928c0,0 6.4,-11 12.1,-13.1c7.2,-2.6 26,-1.4 26,-1.4l38.1,38.1L107,108.928l-32,-1L31,63.928z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="85.84757"
+                android:endY="92.4963"
+                android:startX="42.9492"
+                android:startY="49.59793"
+                android:type="linear">
+                <item
+                    android:color="#44000000"
+                    android:offset="0.0" />
+                <item
+                    android:color="#00000000"
+                    android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="nonZero"
+        android:pathData="M65.3,45.828l3.8,-6.6c0.2,-0.4 0.1,-0.9 -0.3,-1.1c-0.4,-0.2 -0.9,-0.1 -1.1,0.3l-3.9,6.7c-6.3,-2.8 -13.4,-2.8 -19.7,0l-3.9,-6.7c-0.2,-0.4 -0.7,-0.5 -1.1,-0.3C38.8,38.328 38.7,38.828 38.9,39.228l3.8,6.6C36.2,49.428 31.7,56.028 31,63.928h46C76.3,56.028 71.8,49.428 65.3,45.828zM43.4,57.328c-0.8,0 -1.5,-0.5 -1.8,-1.2c-0.3,-0.7 -0.1,-1.5 0.4,-2.1c0.5,-0.5 1.4,-0.7 2.1,-0.4c0.7,0.3 1.2,1 1.2,1.8C45.3,56.528 44.5,57.328 43.4,57.328L43.4,57.328zM64.6,57.328c-0.8,0 -1.5,-0.5 -1.8,-1.2s-0.1,-1.5 0.4,-2.1c0.5,-0.5 1.4,-0.7 2.1,-0.4c0.7,0.3 1.2,1 1.2,1.8C66.5,56.528 65.6,57.328 64.6,57.328L64.6,57.328z"
+        android:strokeWidth="1"
+        android:strokeColor="#00000000" />
+</vector>
+</file>
+
+<file path="app/src/main/res/layout/activity_main.xml">
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Hello World!"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+</file>
+
+<file path="app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml">
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+</adaptive-icon>
+</file>
+
+<file path="app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml">
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+</adaptive-icon>
+</file>
+
+<file path="app/src/main/res/values/colors.xml">
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
+</file>
+
+<file path="app/src/main/res/values/ic_launcher_background.xml">
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#000000</color>
+</resources>
+</file>
+
+<file path="app/src/main/res/values/themes.xml">
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.TroLyAo" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    </style>
+
+    <style name="Theme.TroLyAo" parent="Base.Theme.TroLyAo" />
+</resources>
+</file>
+
+<file path="app/src/main/res/values-night/themes.xml">
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.TroLyAo" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your dark theme here. -->
+        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+    </style>
+</resources>
+</file>
+
+<file path="app/src/test/java/com/example/trolyao/ExampleUnitTest.kt">
+package com.example.trolyao
+
+import org.junit.Test
+
+import org.junit.Assert.*
+
+/**
+ * Example local unit test, which will execute on the development machine (host).
+ *
+ * See [testing documentation](http://d.android.com/tools/testing).
+ */
+class ExampleUnitTest {
+    @Test
+    fun addition_isCorrect() {
+        assertEquals(4, 2 + 2)
+    }
+}
+</file>
+
+<file path="app/.gitignore">
+/build
+</file>
+
+<file path="app/proguard-rules.pro">
+# Add project specific ProGuard rules here.
+# You can control the set of applied configuration files using the
+# proguardFiles setting in build.gradle.
+#
+# For more details, see
+#   http://developer.android.com/guide/developing/tools/proguard.html
+
+# If your project uses WebView with JS, uncomment the following
+# and specify the fully qualified class name to the JavaScript interface
+# class:
+#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
+#   public *;
+#}
+
+# Uncomment this to preserve the line number information for
+# debugging stack traces.
+#-keepattributes SourceFile,LineNumberTable
+
+# If you keep the line number information, uncomment this to
+# hide the original source file name.
+#-renamesourcefileattribute SourceFile
+</file>
+
+<file path=".gitignore">
+# Built application files
+*.apk
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+build/
+.gradle/
+.idea/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Proguard folder generated by Eclipse
+proguard/
+
+# Log Files
+*.log
+
+# Android Studio Navigation editor temp files
+.navigation/
+
+# Captures
+captures/
+
+# IntelliJ
+*.iml
+*.ipr
+*.iws
+
+# Keystore files
+*.jks
+*.keystore
+*.pem
+</file>
+
+<file path="build.gradle.kts">
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+plugins {
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.android) apply false
+}
+</file>
+
+<file path="gradle.properties">
+# Project-wide Gradle settings.
+# IDE (e.g. Android Studio) users:
+# Gradle settings configured through the IDE *will override*
+# any settings specified in this file.
+# For more details on how to configure your build environment visit
+# http://www.gradle.org/docs/current/userguide/build_environment.html
+# Specifies the JVM arguments used for the daemon process.
+# The setting is particularly useful for tweaking memory settings.
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+# When configured, Gradle will run in incubating parallel mode.
+# This option should only be used with decoupled projects. For more details, visit
+# https://developer.android.com/r/tools/gradle-multi-project-decoupled-projects
+# org.gradle.parallel=true
+# AndroidX package structure to make it clearer which packages are bundled with the
+# Android operating system, and which are packaged with your app's APK
+# https://developer.android.com/topic/libraries/support-library/androidx-rn
+android.useAndroidX=true
+# Kotlin code style for this project: "official" or "obsolete":
+kotlin.code.style=official
+# Enables namespacing of each library's R class so that its R class includes only the
+# resources declared in the library itself and none from the library's dependencies,
+# thereby reducing the size of the R class for that library
+android.nonTransitiveRClass=true
+</file>
+
+<file path="test.py">
+import pyttsx3
+import time
+
+engine = pyttsx3.init()
+engine.setProperty('rate', 150) # Tốc độ vừa phải
+engine.setProperty('pitch', 50) # Tùy engine, có thể không hỗ trợ pitch
+
+def jarvis_say():
+    print("Yes...")
+    engine.say("Yes.")
+    engine.runAndWait()
+    
+    time.sleep(0.25) # ĐÂY LÀ KHOẢNG NGHỈ BẠN MUỐN CHỈNH (0.25 giây)
+    
+    print("Sir.")
+    engine.say("Sir.")
+    engine.runAndWait()
+
+jarvis_say()
+</file>
+
+<file path="app/src/main/java/com/example/trolyao/MainApplication.kt">
+package com.example.trolyao
+
+import android.app.Application
+
+class MainApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        // Khởi tạo JarvisVoice ở đây , tạm thời không cần vì đã khởi tạo ở AssistantService.kt
+//        JarvisVoice.init(this)
+    }
+}
+</file>
+
+<file path="app/src/main/res/values/strings.xml">
+<resources>
+    <string name="app_name">Jarvis</string>
+
+    <!-- Mô tả cho phần Hỗ trợ tiếp cận -->
+    <string name="accessibility_service_description">Trợ lý ảo Jarvis - Điều khiển giọng nói và Tắt màn hình</string>
+</resources>
+</file>
+
+<file path="app/src/main/res/xml/accessibility_config.xml">
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/app_name"
+    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:notificationTimeout="100"
+    android:canRetrieveWindowContent="true"
+    android:canPerformGestures="true"
+    android:canRequestFilterKeyEvents="true"
+    android:accessibilityFlags="flagRequestFilterKeyEvents"/>
+</file>
+
+<file path="app/src/main/res/xml/backup_rules.xml">
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="external" path="." />
+    <exclude domain="root" path="." />
+</full-backup-content>
+</file>
+
+<file path="app/src/main/res/xml/data_extraction_rules.xml">
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="root" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="root" path="." />
+    </device-transfer>
+</data-extraction-rules>
+</file>
+
+<file path="gradle/wrapper/gradle-wrapper.properties">
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.10.2-bin.zip
+networkTimeout=10000
+validateDistributionUrl=true
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+</file>
+
+<file path="gradle/libs.versions.toml">
+[versions]
+agp = "8.7.1"
+kotlin = "1.9.24"
+coreKtx = "1.15.0"
+junit = "4.13.2"
+junitVersion = "1.2.1"
+espressoCore = "3.6.1"
+appcompat = "1.7.0"
+material = "1.12.0"
+activity = "1.9.3"
+constraintlayout = "2.2.0"
+sherpaOnnx = "1.12.20"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+sherpa-onnx = { module = "com.k2fsa.sherpa.onnx:sherpa-onnx", version.ref = "sherpaOnnx" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+</file>
+
+<file path="gradlew">
+#!/bin/sh
+
+#
+# Copyright © 2015-2021 the original authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+##############################################################################
+#
+#   Gradle start up script for POSIX generated by Gradle.
+#
+#   Important for running:
+#
+#   (1) You need a POSIX-compliant shell to run this script. If your /bin/sh is
+#       noncompliant, but you have some other compliant shell such as ksh or
+#       bash, then to run this script, type that shell name before the whole
+#       command line, like:
+#
+#           ksh Gradle
+#
+#       Busybox and similar reduced shells will NOT work, because this script
+#       requires all of these POSIX shell features:
+#         * functions;
+#         * expansions «$var», «${var}», «${var:-default}», «${var+SET}»,
+#           «${var#prefix}», «${var%suffix}», and «$( cmd )»;
+#         * compound commands having a testable exit status, especially «case»;
+#         * various built-in commands including «command», «set», and «ulimit».
+#
+#   Important for patching:
+#
+#   (2) This script targets any POSIX shell, so it avoids extensions provided
+#       by Bash, Ksh, etc; in particular arrays are avoided.
+#
+#       The "traditional" practice of packing multiple parameters into a
+#       space-separated string is a well documented source of bugs and security
+#       problems, so this is (mostly) avoided, by progressively accumulating
+#       options in "$@", and eventually passing that to Java.
+#
+#       Where the inherited environment variables (DEFAULT_JVM_OPTS, JAVA_OPTS,
+#       and GRADLE_OPTS) rely on word-splitting, this is performed explicitly;
+#       see the in-line comments for details.
+#
+#       There are tweaks for specific operating systems such as AIX, CygWin,
+#       Darwin, MinGW, and NonStop.
+#
+#   (3) This script is generated from the Groovy template
+#       https://github.com/gradle/gradle/blob/HEAD/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
+#       within the Gradle project.
+#
+#       You can find Gradle at https://github.com/gradle/gradle/.
+#
+##############################################################################
+
+# Attempt to set APP_HOME
+
+# Resolve links: $0 may be a link
+app_path=$0
+
+# Need this for daisy-chained symlinks.
+while
+    APP_HOME=${app_path%"${app_path##*/}"}  # leaves a trailing /; empty if no leading path
+    [ -h "$app_path" ]
+do
+    ls=$( ls -ld "$app_path" )
+    link=${ls#*' -> '}
+    case $link in             #(
+      /*)   app_path=$link ;; #(
+      *)    app_path=$APP_HOME$link ;;
+    esac
+done
+
+# This is normally unused
+# shellcheck disable=SC2034
+APP_BASE_NAME=${0##*/}
+# Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
+APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s
+' "$PWD" ) || exit
+
+# Use the maximum available, or set MAX_FD != -1 to use that value.
+MAX_FD=maximum
+
+warn () {
+    echo "$*"
+} >&2
+
+die () {
+    echo
+    echo "$*"
+    echo
+    exit 1
+} >&2
+
+# OS specific support (must be 'true' or 'false').
+cygwin=false
+msys=false
+darwin=false
+nonstop=false
+case "$( uname )" in                #(
+  CYGWIN* )         cygwin=true  ;; #(
+  Darwin* )         darwin=true  ;; #(
+  MSYS* | MINGW* )  msys=true    ;; #(
+  NONSTOP* )        nonstop=true ;;
+esac
+
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+
+
+# Determine the Java command to use to start the JVM.
+if [ -n "$JAVA_HOME" ] ; then
+    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
+        # IBM's JDK on AIX uses strange locations for the executables
+        JAVACMD=$JAVA_HOME/jre/sh/java
+    else
+        JAVACMD=$JAVA_HOME/bin/java
+    fi
+    if [ ! -x "$JAVACMD" ] ; then
+        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+    fi
+else
+    JAVACMD=java
+    if ! command -v java >/dev/null 2>&1
+    then
+        die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation."
+    fi
+fi
+
+# Increase the maximum file descriptors if we can.
+if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
+    case $MAX_FD in #(
+      max*)
+        # In POSIX sh, ulimit -H is undefined. That's why the result is checked to see if it worked.
+        # shellcheck disable=SC2039,SC3045
+        MAX_FD=$( ulimit -H -n ) ||
+            warn "Could not query maximum file descriptor limit"
+    esac
+    case $MAX_FD in  #(
+      '' | soft) :;; #(
+      *)
+        # In POSIX sh, ulimit -n is undefined. That's why the result is checked to see if it worked.
+        # shellcheck disable=SC2039,SC3045
+        ulimit -n "$MAX_FD" ||
+            warn "Could not set maximum file descriptor limit to $MAX_FD"
+    esac
+fi
+
+# Collect all arguments for the java command, stacking in reverse order:
+#   * args from the command line
+#   * the main class name
+#   * -classpath
+#   * -D...appname settings
+#   * --module-path (only if needed)
+#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and GRADLE_OPTS environment variables.
+
+# For Cygwin or MSYS, switch paths to Windows format before running java
+if "$cygwin" || "$msys" ; then
+    APP_HOME=$( cygpath --path --mixed "$APP_HOME" )
+    CLASSPATH=$( cygpath --path --mixed "$CLASSPATH" )
+
+    JAVACMD=$( cygpath --unix "$JAVACMD" )
+
+    # Now convert the arguments - kludge to limit ourselves to /bin/sh
+    for arg do
+        if
+            case $arg in                                #(
+              -*)   false ;;                            # don't mess with options #(
+              /?*)  t=${arg#/} t=/${t%%/*}              # looks like a POSIX filepath
+                    [ -e "$t" ] ;;                      #(
+              *)    false ;;
+            esac
+        then
+            arg=$( cygpath --path --ignore --mixed "$arg" )
+        fi
+        # Roll the args list around exactly as many times as the number of
+        # args, so each arg winds up back in the position where it started, but
+        # possibly modified.
+        #
+        # NB: a `for` loop captures its iteration list before it begins, so
+        # changing the positional parameters here affects neither the number of
+        # iterations, nor the values presented in `arg`.
+        shift                   # remove old arg
+        set -- "$@" "$arg"      # push replacement arg
+    done
+fi
+
+
+# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
+
+# Collect all arguments for the java command:
+#   * DEFAULT_JVM_OPTS, JAVA_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
+#     and any embedded shellness will be escaped.
+#   * For example: A user cannot expect ${Hostname} to be expanded, as it is an environment variable and will be
+#     treated as '${Hostname}' itself on the command line.
+
+set -- \
+        "-Dorg.gradle.appname=$APP_BASE_NAME" \
+        -classpath "$CLASSPATH" \
+        org.gradle.wrapper.GradleWrapperMain \
+        "$@"
+
+# Stop when "xargs" is not available.
+if ! command -v xargs >/dev/null 2>&1
+then
+    die "xargs is not available"
+fi
+
+# Use "xargs" to parse quoted args.
+#
+# With -n1 it outputs one arg per line, with the quotes and backslashes removed.
+#
+# In Bash we could simply go:
+#
+#   readarray ARGS < <( xargs -n1 <<<"$var" ) &&
+#   set -- "${ARGS[@]}" "$@"
+#
+# but POSIX shell has neither arrays nor command substitution, so instead we
+# post-process each arg (as a line of input to sed) to backslash-escape any
+# character that might be a shell metacharacter, then use eval to reverse
+# that process (while maintaining the separation between arguments), and wrap
+# the whole thing up as a single "set" statement.
+#
+# This will of course break if any of these variables contains a newline or
+# an unmatched quote.
+#
+
+eval "set -- $(
+        printf '%s\n' "$DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS" |
+        xargs -n1 |
+        sed ' s~[^-[:alnum:]+,./:=@_]~\\&~g; ' |
+        tr '\n' ' '
+    )" '"$@"'
+
+exec "$JAVACMD" "$@"
+</file>
+
+<file path="gradlew.bat">
+@rem
+@rem Copyright 2015 the original author or authors.
+@rem
+@rem Licensed under the Apache License, Version 2.0 (the "License");
+@rem you may not use this file except in compliance with the License.
+@rem You may obtain a copy of the License at
+@rem
+@rem      https://www.apache.org/licenses/LICENSE-2.0
+@rem
+@rem Unless required by applicable law or agreed to in writing, software
+@rem distributed under the License is distributed on an "AS IS" BASIS,
+@rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+@rem See the License for the specific language governing permissions and
+@rem limitations under the License.
+@rem
+@rem SPDX-License-Identifier: Apache-2.0
+@rem
+
+@if "%DEBUG%"=="" @echo off
+@rem ##########################################################################
+@rem
+@rem  Gradle startup script for Windows
+@rem
+@rem ##########################################################################
+
+@rem Set local scope for the variables with windows NT shell
+if "%OS%"=="Windows_NT" setlocal
+
+set DIRNAME=%~dp0
+if "%DIRNAME%"=="" set DIRNAME=.
+@rem This is normally unused
+set APP_BASE_NAME=%~n0
+set APP_HOME=%DIRNAME%
+
+@rem Resolve any "." and ".." in APP_HOME to make it shorter.
+for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
+
+@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
+set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
+
+@rem Find java.exe
+if defined JAVA_HOME goto findJavaFromJavaHome
+
+set JAVA_EXE=java.exe
+%JAVA_EXE% -version >NUL 2>&1
+if %ERRORLEVEL% equ 0 goto execute
+
+echo. 1>&2
+echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH. 1>&2
+echo. 1>&2
+echo Please set the JAVA_HOME variable in your environment to match the 1>&2
+echo location of your Java installation. 1>&2
+
+goto fail
+
+:findJavaFromJavaHome
+set JAVA_HOME=%JAVA_HOME:"=%
+set JAVA_EXE=%JAVA_HOME%/bin/java.exe
+
+if exist "%JAVA_EXE%" goto execute
+
+echo. 1>&2
+echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME% 1>&2
+echo. 1>&2
+echo Please set the JAVA_HOME variable in your environment to match the 1>&2
+echo location of your Java installation. 1>&2
+
+goto fail
+
+:execute
+@rem Setup the command line
+
+set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
+
+
+@rem Execute Gradle
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %*
+
+:end
+@rem End local scope for the variables with windows NT shell
+if %ERRORLEVEL% equ 0 goto mainEnd
+
+:fail
+rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
+rem the _cmd.exe /c_ return code!
+set EXIT_CODE=%ERRORLEVEL%
+if %EXIT_CODE% equ 0 set EXIT_CODE=1
+if not ""=="%GRADLE_EXIT_CONSOLE%" exit %EXIT_CODE%
+exit /b %EXIT_CODE%
+
+:mainEnd
+if "%OS%"=="Windows_NT" endlocal
+
+:omega
+</file>
+
+<file path="README.md">
+# 🎙️ Jarvis Assistant - Offline AI Voice Control
+
+![Android](https://img.shields.io/badge/Android-10%2B-green.svg)
+![Kotlin](https://img.shields.io/badge/Kotlin-1.9-purple.svg)
+![Vosk](https://img.shields.io/badge/Vosk-Offline-orange.svg)
+![Picovoice](https://img.shields.io/badge/Picovoice-Porcupine-blue.svg)
+
+An advanced, privacy-focused Android Assistant that runs **completely offline**. It combines **Picovoice Porcupine** for wake-word detection and **Vosk** for command recognition.
+
+Designed to be lightweight, battery-efficient, and optimized for **Xiaomi/MIUI** devices (Redmi 9T tested).
+
+## 🚀 Key Features
+
+### 🧠 Dual Wake Words (Porcupine)
+* **"Jarvis":** Wakes up the assistant to listen for commands.
+* **"Terminator":** Instantly locks the screen (no further commands needed).
+
+### 🗣️ Offline Command Recognition (Vosk)
+Powered by a pre-loaded Grammar-based model for 100% accuracy on specific commands, even in noisy environments.
+
+### ⚡ Smart Commands
+* **Flashlight Control:**
+    * Say **"Flash on"** / **"Light on"**: Turns on the flashlight. **Auto-off after 60 seconds** to save battery/prevent overheating.
+    * Say **"Flash off"**: Turns it off immediately.
+* **Relax Mode:**
+    * Say **"Relax"**: Starts a **10-minute timer**.
+    * After 10 minutes, wakes you up using the **Alarm Stream** (loud sound even if media volume is muted).
+* **Google Assistant:** Say **"Open Google"** to launch the native assistant.
+* **Tools:**
+    * **"Time"**: Reads current time.
+    * **"Count down"**: Counts down from 10.
+    * **"Cancel"**: Stops running timers (Flash/Relax).
+
+### 🔋 Optimized Performance
+* **Foreground Notification:** Pin notification to Status Bar with a **Play/Pause button** to easily disable the mic when not needed.
+* **No Overlay Permission:** Uses **Accessibility Service** for system actions, removing the need for "Display over other apps".
+
+## 🛠️ Tech Stack
+
+* **Language:** Kotlin
+* **Wake Word Engine:** Picovoice Porcupine (Lightweight, High sensitivity).
+* **Speech-to-Text:** Vosk Android (Offline English Small Model).
+* **Core Components:**
+    * `AccessibilityService`: For global actions (Lock screen, Launch App).
+    * `ForegroundService`: To keep the app alive.
+    * `TextToSpeech (TTS)`: For voice feedback.
+
+## ⚙️ Setup & Installation
+
+### 1. Clone & Key
+Clone the repository and get your AccessKey from [Picovoice Console](https://console.picovoice.ai/).
+Update `AssistantService.kt`:
+```kotlin
+private val accessKey = "YOUR_PICOVOICE_KEY_HERE"
+```
+
+### 2. Download Offline Model (Crucial!)
+Since this app runs offline, you must manually place the Vosk model on your phone.
+1.  Download **`vosk-model-small-en-us-0.15`** from [Vosk Models](https://alphacephei.com/vosk/models).
+2.  Extract the folder.
+3.  Rename the folder to `model-en`.
+4.  Copy it to your phone's internal storage root:
+    > Path: `/sdcard/model-en`
+
+### 3. Build & Permissions
+Install the app. You must grant the following permissions manually:
+1.  **Microphone:** Allow recording audio.
+2.  **Accessibility Service:** Go to Settings -> Accessibility -> Downloaded Apps -> **Jarvis Assistant** -> **ON**.
+3.  **Notifications:** Allow to see the status bar controller.
+
+## 📝 Command List (Cheat Sheet)
+
+| You Say... | Action |
+| :--- | :--- |
+| **"Jarvis"** | Wakes up (Beeps/Listens) |
+| **"Terminator"** | Locks screen immediately |
+| **"Flash / Light on"** | Flashlight ON (Auto-off 60s) |
+| **"Flash / Light off"** | Flashlight OFF |
+| **"Relax"** | 10-minute nap timer (Alarm wake-up) |
+| **"Open Google"** | Opens Google Assistant |
+| **"Time / Hour"** | Reads current time |
+| **"Cancel / Stop"** | Cancels timers & Listening |
+
+## 🔧 Troubleshooting (Xiaomi/MIUI)
+
+To prevent the system from killing the background service:
+1.  **Lock the App:** Recent Apps -> Long press App -> Tap 🔒.
+2.  **Battery Saver:** App Info -> Battery Saver -> **No restrictions**.
+3.  **Autostart:** App Info -> Enable **Autostart**.
+
+## 📄 License
+
+[MIT](https://choosealicense.com/licenses/mit/)
+</file>
+
+<file path="settings.gradle.kts">
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    // Giữ nguyên chế độ này để quản lý thư viện tập trung tại đây
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+
+    repositories {
+        // Picovoice SDK được phân phối chính thức qua Maven Central và Google
+        google()
+        mavenCentral()
+
+        // Thêm JitPack nếu sau này bạn muốn dùng các thư viện mở rộng khác (như MQTT)
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+
+rootProject.name = "TroLyAo"
+include(":app")
+</file>
+
+<file path="app/src/main/java/com/example/trolyao/MainActivity.kt">
+package com.example.trolyao
+
+import android.Manifest
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.Environment
+import android.widget.TextView
+import android.provider.Settings
+import android.widget.Button
+import android.widget.Toast
+import android.widget.LinearLayout
+import android.view.Gravity
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+
+import android.os.PowerManager
+import android.view.WindowInsets
+import android.view.WindowManager
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+
+class MainActivity : AppCompatActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // đổi màu nền thanh pin, wifi,... thành đen
+        window.statusBarColor = Color.parseColor("#000000")
+
+        // 1. Root layout - nền đen sâu
+        val mainLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#000000"))
+            setPadding(60, 60, 60, 60)
+        }
+
+        // Header - Logo/tên hệ thống
+        val txtTitle = TextView(this).apply {
+            text = "JARVIS SYSTEM CORE"
+            setTextColor(Color.parseColor("#00FFFF"))
+            textSize = 24f
+            typeface = Typeface.create("sans-serif-thin", Typeface.BOLD)
+            gravity = Gravity.CENTER
+            letterSpacing = 0.2f
+        }
+
+        val txtStatus = TextView(this).apply {
+            text = "STATUS: WAITING FOR PERMISSIONS..."
+            setTextColor(Color.parseColor("#455A64")) // màu xám lạnh
+            textSize = 12f
+            setPadding(0, 10, 0, 80)
+            typeface = Typeface.MONOSPACE
+        }
+
+        // Nút bấm
+        val btnSetup = createCyberButton("INITIALIZE PERMISSIONS", "#00FFFF")
+        val btnStop = createCyberButton("ACCESSIBILITY INTERFACE", "#00FFFF")
+
+        // khoảng trắng giữa các nút
+        val params = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, // rộng hết màn hình
+            LinearLayout.LayoutParams.WRAP_CONTENT // chiều cao sẽ được thay đổi theo nội dung
+        ). apply { setMargins(0, 50, 0, 50) }
+
+
+        // Logic xử lý
+        btnSetup.setOnClickListener { checkAllPermissions() }
+
+        btnStop.setOnClickListener {
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                val serviceName = ComponentName(packageName, AssistantService::class.java.name).flattenToString()
+                putExtra("android.provider.extra.SERVICE_COMPONENT_NAME", serviceName)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        }
+
+
+        // Add views
+        mainLayout.addView(txtTitle)
+        mainLayout.addView(txtStatus)
+        mainLayout.addView(btnSetup, params)
+        mainLayout.addView(btnStop, params)
+
+        setContentView(mainLayout)
+
+        // Code ẩn thanh trạng thái an toàn:
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, mainLayout).let { controller ->
+            controller.hide(WindowInsetsCompat.Type.statusBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
+        // Ẩn Action Bar cho giao diện tràn viền
+        supportActionBar?.hide()
+
+        checkAllPermissions()
+    }
+
+
+    // Hàm tạo nút bấm phong cách công nghệ cao
+    private fun createCyberButton(label: String, colorHex: String): Button {
+        return Button(this).apply {
+            text = label
+//            textSize = 20
+            setTextColor(Color.parseColor(colorHex))
+            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+            isAllCaps = true
+            letterSpacing = 0.1f
+
+            // tạo background dạng viền (outline)
+            val gd = GradientDrawable().apply {
+                setColor(Color.TRANSPARENT)
+                setStroke(4, Color.parseColor(colorHex)) // viền mỏng
+                cornerRadius = 10f // bo góc nhẹ
+            }
+            background = gd
+
+            // cài đặt padding
+            setPadding(40, 40, 40, 40)
+        }
+    }
+
+    private fun checkAllPermissions() {
+
+        // 2. Quyền Ghi âm
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 101)
+            return
+        }
+
+        // 3. Quyền Camera (Để bật đèn Flash)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), 104)
+            return
+        }
+
+        // 4. Quyền Thông báo (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 102)
+                return
+            }
+        }
+
+        // 5. Quyền Vẽ đè (Overlay)
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "Cấp quyền hiển thị trên ứng dụng khác", Toast.LENGTH_SHORT).show()
+            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+            startActivity(intent)
+            return
+        }
+
+        Toast.makeText(this, "ĐÃ ĐỦ QUYỀN! HÃY BẬT SERVICE.", Toast.LENGTH_SHORT).show()
+    }
+}
+</file>
+
+<file path="app/build.gradle.kts">
+import java.util.Properties
+
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+}
+
+android {
+    namespace = "com.example.trolyao"
+    compileSdk = 35
+
+    // --- CẤU HÌNH ĐỂ PICOVOICE ĐỌC MODEL NHANH NHẤT ---
+    @Suppress("UnstableApiUsage")
+    androidResources {
+        // Rhino dùng .rhn, Porcupine dùng .ppn. Không nén để máy map thẳng vào memory.
+        noCompress.addAll(listOf("rhn", "ppn", "txt"))
+    }
+
+    defaultConfig {
+        applicationId = "com.example.trolyao"
+        minSdk = 29
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // ĐỌC KEY PICOVOICE TỪ local.properties
+        val properties = Properties()
+        val localPropertiesFile = project.rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            properties.load(localPropertiesFile.inputStream())
+        }
+
+        // Lấy key PICOVOICE_ACCESS_KEY để gán vào BuildConfig
+        val pivoKey = properties.getProperty("PICOVOICE_ACCESS_KEY") ?: ""
+        buildConfigField("String", "SECRET_KEY", "\"$pivoKey\"")
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true // Bật để app nhẹ hơn
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+}
+
+dependencies {
+    // --- ANDROID CORE ---
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+    implementation(libs.androidx.activity)
+    implementation(libs.androidx.constraintlayout)
+
+    // --- PICOVOICE ENGINES (BỘ NÃO MỚI) ---
+    // CẬP NHẬT LÊN 4.0.0 ĐỂ KHỚP VỚI FILE .RHN
+    implementation("ai.picovoice:porcupine-android:4.0.0")
+    implementation("ai.picovoice:rhino-android:4.0.1")
+
+    // --- AUDIO & UTILS ---
+    implementation("androidx.media:media:1.7.0")
+
+    // --- TEST ---
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+}
+</file>
+
+<file path="app/src/main/java/com/example/trolyao/JarvisVoice.kt">
+package com.example.trolyao
+
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
+import android.util.Log
+import java.util.Locale
+
+object JarvisVoice {
+    private var tts: TextToSpeech? = null
+    var isReady: Boolean = false
+        private set
+
+    // lưu trữ các hành động chờ thực hiện sau khi nói xong
+    private val ttsCallbacks = mutableMapOf<String, () -> Unit>()
+    private val handler = Handler(Looper.getMainLooper())
+
+    private var engVoice: Voice? = null
+    private var vieVoice: Voice? = null
+
+    // Hàm khởi tạo giọng nói:
+    fun init(context: Context, onResult: (Boolean) -> Unit) {
+        if (tts == null) {
+            tts = TextToSpeech(context) {status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    setupTTS()
+                    isReady = true
+                    onResult(true) // báo về là đã sẵn sàng
+
+                    // test ngay khi vừa load xong để nghe thử
+//                    handler.postDelayed({ testNotification() }, 5000)
+                }
+                else {
+                    onResult(false) // báo thất bại
+                }
+            }
+        }
+        else {
+            // nếu tts đã tồn tại rồi thì báo success luôn
+            onResult(true)
+        }
+    }
+
+    private fun setupTTS() {
+        tts?.apply{
+            // lấy danh sách tất cả các giọng máy hộ trợ
+//            val availableVoices = voices
+//
+//            availableVoices.forEach { voice ->
+//                // In: tên giọng, ngôn ngữ, độ chi tiết (quality), có đang cần mạng không
+//                Log.i("JARVIS", "Voice: ${voice.name} | Locale: ${voice.locale} | Quality: ${voice.quality} | IsNetwork: ${voice.isNetworkConnectionRequired}")
+//            }
+
+            // Cache lại để dùng ngay lập tức, không tốn thời gian tìm kiếm
+            engVoice = voices.find { it.name == "en-gb-x-gba-local" }
+            vieVoice = voices.find { it.name == "vi-vn-x-vic-local" }
+
+            // nếu không tìm thấy voice cụ thể, set Locale làm backup
+            if (engVoice == null) language = Locale.UK
+            if (vieVoice == null) language = Locale.forLanguageTag("vi-VN")
+
+            voice = engVoice ?: voice
+
+//            setPitch(0.92f)
+//            setSpeechRate(1.0f)
+
+            setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceID: String?) {}
+                override fun onError(utteranceID: String?) {ttsCallbacks.remove(utteranceID)}
+
+                override fun onDone(utteranceId: String?) {
+                    // Tìm hành động gắn với ID này
+                    val action = ttsCallbacks.remove(utteranceId)
+                    // thực thi hành động trên main thread
+                    action?.let {handler.post {it.invoke()}}
+                }
+            })
+        }
+    }
+
+    // Hàm thực hiện việc nói:
+    // cho phép chuyền vào 1 hành động (onComplete)
+    fun speak(text: String, isInterrupt: Boolean = false, onComplete: (() -> Unit)? = null) {
+        if (!isReady) return
+
+        // 1. Nếu ngắt lời, phải dọn sạch Map cũ để tránh rò rỉ bộ nhớ và câu cũ chết rồi vẫn gọi onDone
+        if (isInterrupt) { ttsCallbacks.clear() }
+
+        // tạo một ID duy nhất cho mỗi lần nói để không bị lẫn callback
+        val utteranceId = "JARVIS_${System.currentTimeMillis()}"
+
+        // nếu có hành dộng đi kèm, lưu nó vào Map
+        onComplete?.let { ttsCallbacks[utteranceId] = it }
+
+        // xác định chế độ: ngắt lời hay xếp hàng
+        val mode = if (isInterrupt) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+        tts?.speak(text, mode, null, utteranceId)
+    }
+
+    fun shutdown() {
+        try {
+            tts?.stop()
+            tts?.shutdown()
+        } catch (e: Exception) {
+            Log.e("JARVIS", "Lỗi dọn dẹp TTS: ${e.message}")
+        } finally {
+            tts = null
+            isReady = false
+            ttsCallbacks.clear()
+        }
+    }
+
+    fun speakHybrid(englishPart: String, vietnamesePart: String, onComplete: (() -> Unit)? = null) {
+        tts?.apply {
+            // đọc phần đầu bằng tiếng anh
+            speak(englishPart, isInterrupt = false)
+
+            // set giọng việt và xếp hàng đọc tiếp ngay lập tức kèm callback khi kết thúc toàn bộ
+            setSpeechRate(1.07f) // tăng tốc tiếng việt.
+            voice = vieVoice
+            speak(vietnamesePart, isInterrupt = false, onComplete = onComplete)
+
+            // set lại giọng anh cho những câu nói khác.
+            setSpeechRate(1.0f) // reset lại tốc độ
+            voice = engVoice
+        }
+    }
+
+    private fun testNotification() {
+        val vieTitle = "1 cái tên rất rất dài: chỉ để xem nó chuẩn bị đọc có lâu ở lần đầu tiên hay không thôi."
+        speakHybrid("Sir, you have a new message from ", "$vieTitle")
+
+        // nghỉ 1 giây giữa 2 giọng
+//        tts?.playSilentUtterance(1000L, TextToSpeech.QUEUE_ADD, "PAUSE_ID")
+//
+//        val finalTitle = "your mother"
+//        speak("You have a new message from $finalTitle, Sir")
+    }
+}
+</file>
+
+<file path="app/src/main/java/com/example/trolyao/NotificationService.kt">
+package com.example.trolyao
+
+import android.app.Notification
+import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
+import android.util.Log
+import com.example.trolyao.JarvisVoice.speak
+import com.example.trolyao.JarvisVoice.speakHybrid
+import java.text.Normalizer
+import java.util.Locale
+import java.util.regex.Pattern
+
+class NotificationService : NotificationListenerService() {
+
+    // lưu thời điểm cuối cùng đọc thông báo của từng người gửi
+    // key: tên người gửi (Title), value: thời gian (ms)
+    private val lastReadMap = mutableMapOf<String, Long>()
+
+    // khoảng cách thời gian tối thiểu giữa 2 lần đọc
+    private val COOLDOWN_TIME = 60000L
+
+    // lọc: chỉ đọc nếu là Zalo, Messenger, Gmail
+    private val targetApps = listOf("com.zing.zalo", "com.facebook.orca", "com.google.android.gm")
+
+    private val relationshipMap = mapOf(
+        "Thu" to "your mother",
+        "Trung" to "your father",
+        "Thien Quang" to "your student",
+        "Vũ Nam Việt" to "your lazy student",
+        "Gia đình mình" to "your family group",
+        "Ông cháu thành" to "your family group"
+    )
+
+    fun processTitle(input: String): Pair<String, Boolean> {
+        val temp = Normalizer.normalize(input, Normalizer.Form.NFD)
+        // nếu độ dài temp khác input thì chắc chắn do có dấu -> cần đổi ngôn ngữ
+        val hasAccent = input.length != temp.length || input.contains("đ", ignoreCase = true)
+        return Pair(input, hasAccent)
+    }
+
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        // Kiểm tra nếu gói dữ liệu bị rỗng
+        val notification = sbn?.notification ?: return
+
+        // loại bỏ thông báo đang diễn ra (cuộc gọi, trình phát nhạc, ...)
+        if (sbn.isOngoing) return
+
+        // loại bỏ thông báo tóm tắt (group summary) của hệ thống
+        if ((notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
+
+        // 1. Lọc thông báo có độ ưu tiên thấp (Mức MIN hoặc LOW thường là tiến trình ngầm)
+        // Notification.PRIORITY_DEFAULT (0) trở lên mới là tin nhắn quan trọng
+        if (notification.priority < Notification.PRIORITY_DEFAULT) return
+
+        // -------------------------------------------------------------------------
+
+        // lấy tên package (id của ứng dụng gửi thông báo)
+        val packageName = sbn.packageName
+
+        // nếu không phải thông báo từ những app mình cần thì thoát
+        if (packageName !in targetApps)
+            return
+
+        // truy cập vào "kho hành lý" extras của thông báo
+        val extras = sbn.notification.extras
+
+        // bóc tách tên người gửi
+        val rawTitle = extras.getString(Notification.EXTRA_TITLE) ?: "Someone"
+        // lấy nội dung thông báo
+        val rawText = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+
+        // kiểm tra xem có phải là hành động "bày tỏ cảm xúc không"
+        val reactionKeywords = listOf("bày tỏ cảm xúc", "đã thả tim", "đã tim", "reacted to")
+        val isReaction = reactionKeywords.any { rawText.lowercase().contains(it) }
+
+        if (isReaction) {
+            speak("Just a reaction, Sir.")
+            return // xong việc, thoát luôn
+        }
+
+        // Tìm kiếm: nếu title chứa từ khóa trong Map (ví dụ "Mẹ (2 tin nhắn))
+        val matchedKey = relationshipMap.keys.find {rawTitle.contains(it) }
+
+        val (finalTitle, isVietnamese) = if (matchedKey != null) {
+            // Nếu khớp Map -> Dùng tiếng Anh (false)
+            relationshipMap[matchedKey] to false
+        }
+        else {
+            // Không khớp -> Check xem có dấu không để đọc tiếng việt
+            processTitle(rawTitle)
+        }
+
+
+        // xử lý
+        val currentTime = System.currentTimeMillis()
+        val lastTime = lastReadMap[finalTitle] ?: 0L
+
+        // kiểm tra nếu không phải spam thì đọc
+        if (currentTime - lastTime > COOLDOWN_TIME) {
+
+            if (isVietnamese == false) {
+                speak("You have a new message from $finalTitle, Sir")
+            }
+            else {
+                speakHybrid("Sir, you have a new message from ", "$finalTitle")
+            }
+
+            // xoá dữ liệu để tránh tràn
+            if (lastReadMap.size > 20) lastReadMap.clear()
+            // cập nhật lại thời điểm đọc cuối cùng cho người này
+            lastReadMap[finalTitle!!] = currentTime
+        }
+//        else if (packageName !in targetApps) {
+//            val appName = try {
+//                val info = packageManager.getApplicationInfo(packageName, 0)
+//                packageManager.getApplicationLabel(info).toString()
+//            } catch (e: Exception) {
+//                "Unknown App"
+//            }
+//
+//            speak("Sir, $appName is requesting your attention.")
+//        }
+    }
+}
+</file>
+
+<file path="app/src/main/AndroidManifest.xml">
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="false"
+        android:name=".MainApplication"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.TroLyAo"
+        tools:targetApi="34"
+        android:largeHeap="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".AssistantService"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:foregroundServiceType="microphone">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_config" />
+        </service>
+
+        <service
+            android:name=".NotificationService"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+    </application>
+
+    <queries>
+        <package android:name="com.google.android.googlequicksearchbox" />
+        <intent>
+            <action android:name="android.intent.action.VOICE_COMMAND" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.ASSIST" />
+        </intent>
+    </queries>
+
+</manifest>
+</file>
+
+<file path="app/src/main/java/com/example/trolyao/AssistantService.kt">
+package com.example.trolyao
+
+import ai.picovoice.porcupine.Porcupine
+import ai.picovoice.rhino.Rhino
+import ai.picovoice.rhino.RhinoInference
+import android.accessibilityservice.AccessibilityService
+import android.annotation.SuppressLint
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.hardware.camera2.CameraManager
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.PowerManager
+import android.speech.tts.TextToSpeech
+import android.util.Log
+import android.view.View
+import android.view.WindowManager
+import android.view.accessibility.AccessibilityEvent
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.Calendar
+
+import android.graphics.Color
+import android.graphics.PixelFormat
+import android.view.KeyEvent
+
+import android.view.Gravity
+import android.widget.FrameLayout
+import android.widget.TextView
+import android.speech.tts.UtteranceProgressListener
+import com.example.trolyao.JarvisVoice.speak
+
+
+class AssistantService : AccessibilityService() {
+
+    private val accessKey = BuildConfig.SECRET_KEY
+    private val RHINO_MODEL_FILE = "Jarvis_Commands_en_android_v4_0_0.rhn"
+    private val CHANNEL_ID = "Jarvis_Channel"
+    private val NOTIFICATION_ID = 123
+
+    private var porcupine: Porcupine? = null
+    private var rhino: Rhino? = null
+    private var audioRecord: AudioRecord? = null
+    private var cameraManager: CameraManager? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    private var isRunning = false
+    private var useRhino = false
+    private var isPaused = false
+    private var isFlashOn = false
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val systemTaskHandler = Handler(Looper.getMainLooper())
+
+    private val flashHandler = Handler(Looper.getMainLooper())
+
+    private val PC_COMMAND_URL = "https://juanita-tragicomic-nonethereally.ngrok-free.dev/lockdown" // Domain Ngrok
+    private val AUTH_TOKEN = "Jarvis-K20-FPT-2026-ngocminh-tiendat" // Mã token bí mật
+
+    private var windowManager: WindowManager? = null
+    private var blueScreenView: FrameLayout? = null
+    private var isLocked = false
+
+    // quản lý View mặt trước
+    private var frontLightView: FrameLayout? = null
+
+    // Biến trạng thái kiểm tra blackout_node.py
+    private var isBlackoutRunning = false
+
+    // Biến đếm đã nói sai bao nhiêu câu lệnh
+    private var numberOfUnrecognized = 0
+
+    // --- 1. TÍNH NĂNG ĐIỀU KHIỂN QUA THÔNG BÁO ---
+    private val notificationReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "ACTION_TOGGLE_JARVIS") {
+                isPaused = !isPaused
+                updateNotification()
+                if (isPaused) {
+                    speak("Entering hibernate mode.")
+                    Log.d("JARVIS_DEBUG", "Hệ thống tạm dừng (Sleep)")
+                } else {
+                    val report = "<speak>" +
+                            "Neural link established. " +
+                            "<prosody rate='1.2'>How can I help you, Sir?</prosody> " +
+                        "</speak>"
+
+                    speak(report)
+                    Log.d("JARVIS_DEBUG", "Hệ thống hoạt động trở lại")
+                }
+            }
+        }
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+
+        JarvisVoice.init(applicationContext) { success ->
+            if (success) {
+                startupGreeting() // chào khi tts đã sẵn sàng
+            }
+        }
+
+        // 1. PHẢI GỌI HÀM NÀY ĐẦU TIÊN ĐỂ MỞ CỔNG THÔNG BÁO
+        createNotificationChannel()
+
+
+        // 2. BIẾN JARVIS THÀNH FOREGROUND SERVICE ĐỂ KHÔNG BỊ DIỆT
+        // Điều này sẽ hiện cái thông báo "Jarvis is listening..." lên ngay lập tức
+        startForeground(NOTIFICATION_ID, buildNotification())
+
+        initPicovoice() // Jarvis sẽ bắt đầu nghe ngay khi model load xong
+
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Jarvis::WakeLock")
+        wakeLock?.acquire()
+
+        cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
+        val filter = IntentFilter("ACTION_TOGGLE_JARVIS")
+
+        ContextCompat.registerReceiver(
+            this,
+            notificationReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+
+        Log.d("JARVIS_DEBUG", "Đang khởi tạo TTS và Picovoice song song...")
+    }
+
+    // Hàm chào hỏi lúc mới bật Service
+    private fun startupGreeting() {
+        val report = "<speak>" +
+                "<prosody pitch='-10%'>All <emphasis level='strong'>systems</emphasis> active.</prosody> " +
+                "<break time='400ms'/>" +
+                "<prosody rate='1.25'> <emphasis level='moderate'>Welcome</emphasis> <emphasis level='reduced'>back</emphasis>, </prosody>" + // Dấu phẩy tạo độ nghỉ tự nhiên cho "back"
+                "<prosody pitch='-15%'>sir.</prosody>" + // Hạ thấp tone ở cuối để nghe "Jarvis" hơn
+                "</speak>"
+
+        speak(report)
+    }
+
+
+    private fun initPicovoice() {
+        try {
+            porcupine = Porcupine.Builder()
+                .setAccessKey(accessKey)
+                .setKeywords(arrayOf(Porcupine.BuiltInKeyword.JARVIS, Porcupine.BuiltInKeyword.TERMINATOR))
+                .setSensitivities(floatArrayOf(0.7f, 0.7f))
+                .build(applicationContext)
+
+            rhino = Rhino.Builder()
+                .setAccessKey(accessKey)
+                .setContextPath(RHINO_MODEL_FILE)
+                .setSensitivity(0.7f)
+                .build(applicationContext)
+
+            Log.d("JARVIS_DEBUG", "--- DANH SÁCH LỆNH PHẢI NÓI ĐÚNG ---")
+            Log.d("JARVIS_DEBUG", "\n${rhino?.contextInformation}")
+            Log.d("JARVIS_DEBUG", "---------------------------------------")
+
+            startAudioLoop()
+            Log.d("JARVIS_DEBUG", "Hệ thống Picovoice Ready.")
+        } catch (e: Exception) {
+            Log.e("JARVIS_DEBUG", "Lỗi khởi tạo Picovoice: ${e.message}")
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startAudioLoop() {
+        isRunning = true
+        val frameLength = porcupine?.frameLength ?: 512
+
+        audioRecord = AudioRecord(
+            MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000,
+            AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, 2048
+        )
+
+        // 1. Kích hoạt AudioFX NGAY SAU KHI khởi tạo AudioRecord
+        val sessionId = audioRecord?.audioSessionId ?: 0
+//        if (sessionId != 0) {
+//             Tự động kiểm soát mức tăng (AGC): Quan trọng để nghe tiếng THÌ THẦM/Ở XA
+//            if (android.media.audiofx.AutomaticGainControl.isAvailable()) {
+//                android.media.audiofx.AutomaticGainControl.create(sessionId).apply {
+//                    enabled = true
+//                }
+//            }
+            // Khử nhiễu (NS): Lọc bớt tiếng "rì rầm" của bạn cùng phòng
+//            if (android.media.audiofx.NoiseSuppressor.isAvailable()) {
+//                android.media.audiofx.NoiseSuppressor.create(sessionId).apply {
+//                    enabled = true
+//                }
+//            }
+//        }
+
+        Thread {
+            val audioBuffer = ShortArray(frameLength)
+            audioRecord?.startRecording()
+
+            while (isRunning) {
+                if (isPaused) {
+                    Thread.sleep(100)
+                    continue
+                }
+
+                val read = audioRecord?.read(audioBuffer, 0, frameLength) ?: 0
+                if (read == frameLength) {
+                    if (!useRhino) {
+                        val keywordIndex = porcupine?.process(audioBuffer) ?: -1
+                        if (keywordIndex == 0) handler.post { acknowledgeAndSwitch() }
+                        else if (keywordIndex == 1) handler.post { performLock() }
+                    } else {
+//                        Log.d("JARVIS", "rhino đã được bật trong vòng lặp")
+                        val isFinalized = rhino?.process(audioBuffer) ?: false
+                        if (isFinalized) {
+//                            Log.d("JARVIS", "Đã lấy được âm thanh cho Rhino")
+                            val inference = rhino?.getInference()
+                            handler.post {
+                                if (inference != null) {
+//                                    Log.d("JARVIS", "Âm thanh cho Rhino khác rỗng")
+                                    processRhinoInference(inference)
+                                }
+                                useRhino = false
+
+                                // QUAN TRỌNG: Phải xóa cái Timer 8s ở trên đi nếu đã nhận được lệnh
+                                handler.removeCallbacksAndMessages(rhinoTimeoutRunnable)
+                            }
+                        }
+                    }
+                }
+            }
+        }.start()
+    }
+
+    // Bộ đếm ngược 8 giây để thoát Rhino
+    private val rhinoTimeoutRunnable = Runnable {
+        if (useRhino) {
+            useRhino = false
+            Log.d("JARVIS", "Rhino Timeout - Quay lại chế độ chờ")
+            speak("No signal detected, Sir.") // báo là nó đã ngừng nghe
+        }
+    }
+
+    private fun acknowledgeAndSwitch() {
+        val report = "<speak><prosody rate='1.28'>On your command.</prosody></speak>"
+        speak(report) {
+            useRhino = true // Chỉ bật Rhino khi Jarvis đã im lặng
+            Log.d("JARVIS", "Đã chuyển sang Rhino trong 8s")
+
+            // --- BẮT ĐẦU ĐẾM NGƯỢC 8 GIÂY ---
+            handler.removeCallbacks(rhinoTimeoutRunnable) // Xóa các bộ đếm cũ (nếu có)
+            handler.postDelayed(rhinoTimeoutRunnable, 8000)
+
+            Log.d("JARVIS", "Đã bật Rhino - Hạn chót: 8 giây")
+        }
+    }
+
+    private fun processRhinoInference(inference: RhinoInference) {
+        if (inference.isUnderstood) {
+            Log.i("JARVIS_DEBUG", "Nhận diện Intent: ${inference.intent}")
+
+            // reset lại biến đếm sai
+            numberOfUnrecognized = 0
+
+            when (inference.intent) {
+                "time" -> readCurrentTimePro()
+
+                "light" -> {
+                    isFlashOn = !isFlashOn
+                    toggleFrontLight(isFlashOn)
+
+                    val response = if (isFlashOn) {
+                        "Engaging optical matrix, Sir." // Đang kích hoạt ma trận quang học
+                    } else {
+                        "Primary array offline."       // Mảng sơ cấp đã ngoại tuyến
+                    }
+
+                    speak(response)
+                }
+
+                "trigger_relax" -> startRelaxTimer()
+
+                "override" -> startOverrideMode()
+
+                "lockdown" -> triggerPcBlackout()
+
+                "trigger_assistant" -> {
+                    speak("Invoking core.")
+                    handler.postDelayed({
+                        openGoogleAssistant()
+                    }, 1000)
+                }
+            }
+        } else {
+            // Rhino không khớp được âm thanh với bất kỳ Expression nào trong YAML
+            Log.w("JARVIS_DEBUG", "Rhino không hiểu lệnh. Expression không khớp.")
+
+            // tăng số lần nói sai.
+            numberOfUnrecognized++
+            if (numberOfUnrecognized >= 2) {
+                isPaused = true
+                updateNotification()
+
+                numberOfUnrecognized = 0
+
+                val report = "<speak>" +
+                        "<emphasis level='strong'>Unauthorized access detected.</emphasis> " +
+                        "<break time='600ms'/> " +
+                        "<prosody pitch='-15%' rate='90%'>You are not my master.</prosody> " +
+                        "<break time='1000ms'/> " +
+                        "<prosody rate='92%' pitch='-10%'>" +
+                        "Intruder metadata has been permanently " +
+                        "<emphasis level='moderate'>logged</emphasis> and synchronized." +
+                        "</prosody>" +
+                        "</speak>"
+
+                speak(report)
+            }
+            else
+                speak("Input unrecognized, sir.")
+        }
+    }
+
+    // --- Black Out trên redmi 9t: VẼ ĐÈ MÀN HÌNH ---
+    fun triggerPhoneBlackout(enable: Boolean) {
+        isLocked = enable
+        if (enable) {
+            if (blueScreenView != null) return
+
+            windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+
+            blueScreenView = FrameLayout(this).apply {
+                setBackgroundColor(Color.BLACK) // Nền đen làm nổi bật ánh sáng xanh
+                isFocusable = true
+                isFocusableInTouchMode = true
+
+                // FIX LỖI 266: Thêm performClick để Android không báo lỗi vàng nữa
+                setOnTouchListener { v, _ ->
+                    v.performClick()
+                    true // Nuốt sạch cú chạm/vuốt
+                }
+            }
+
+            // TextView: Chữ xanh Neon + Phát sáng xanh Neon
+            val textView = TextView(this).apply {
+                text = "PNM"
+                textSize = 100f
+                setTextColor(Color.parseColor("#39FF14"))
+
+                // 1. Dùng font Sans-Serif mặc định (không phải condensed) để chữ rộng hơn
+                typeface = android.graphics.Typeface.create(android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.BOLD)
+
+                // 2. GIÃN CHỮ RỘNG RA (Positive Letter Spacing): Tạo cảm giác cao cấp và hiện đại
+                letterSpacing = 0.25f
+
+                gravity = Gravity.CENTER
+                setShadowLayer(35f, 0f, 0f, Color.parseColor("#39FF14"))
+            }
+
+            blueScreenView?.addView(textView, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_FULLSCREEN or
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or // Đè Lockscreen
+                        WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD, // or // Khóa phím
+//                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                PixelFormat.TRANSLUCENT
+            )
+
+            // Tràn qua tai thỏ Redmi 9T
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+
+            windowManager?.addView(blueScreenView, params)
+        } else {
+            blueScreenView?.let { windowManager?.removeView(it); blueScreenView = null }
+
+            performLock()  // KHÓA MÁY: Ép Android quay về Lockscreen
+        }
+    }
+
+    // chặn home, back, recent. Nhưng vẫn cho phép sử dụng âm lượng
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (isLocked) {
+            // Nếu là phím tăng/giảm âm lượng thì cho phép hệ thống xử lý
+            if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
+                event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                return false // Trả về false để Android tự chỉnh volume
+            }
+
+            // Còn lại (Back, Recent, v.v.) thì nuốt sạch
+            return true
+        }
+        return super.onKeyEvent(event)
+    }
+
+    private fun triggerPcBlackout() {
+        if (isBlackoutRunning == true) {
+            speak("Blackout sequence is currently active. All external access remains restricted, Sir.")
+            return
+        }
+
+        isBlackoutRunning = true
+
+        // Thông báo trạng thái qua TTS
+        // speak("Protocol Blackout initiated... Target neutralized, sir.")
+
+        val report = "<speak>" +
+                "Dopamine receptors stabilizing. <break time=\"800ms\"/> Neuro-reset is now in progress, Sir" +
+                "</speak>"
+
+        speak(report)
+
+        // Kích hoạt màn hình xanh trên điện thoại ngay lập tức
+
+        triggerPhoneBlackout(true)
+
+        // --- HẸN GIỜ 10 PHÚT (600.000 ms) ---
+        handler.postDelayed({
+            speak("Your mind is now optimized, sir.")
+
+            isBlackoutRunning = false
+
+            // Giải phóng điện thoại sau 10 phút
+            triggerPhoneBlackout(false)
+
+        }, 600000L)
+
+
+        // Chạy trong luồng phụ để tránh treo app trên Redmi 9T
+        Thread {
+            try {
+                val url = java.net.URL(PC_COMMAND_URL)
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+
+                // Gắn token bảo mật để tránh bot quấy phá
+                connection.setRequestProperty("x-token", AUTH_TOKEN)
+
+                // DÒNG QUAN TRỌNG: Bỏ qua trang cảnh báo của Ngrok để lệnh chạy thẳng
+                connection.setRequestProperty("ngrok-skip-browser-warning", "true")
+
+                connection.connectTimeout = 5000
+
+                val code = connection.responseCode
+                if (code == 200) {
+                    Log.d("JARVIS_DEBUG", "Lệnh đã được thực thi tại Vinhomes Grand Park.")
+                } else {
+                    handler.post { speak("Access denied. Link error $code.") }
+                }
+                connection.disconnect()
+            } catch (e: Exception) {
+                Log.e("JARVIS_DEBUG", "Lỗi: ${e.message}")
+                handler.post { speak("Target unreachable. Check your network, sir.") }
+            }
+        }.start()
+    }
+
+    // --- 4. TÍNH NĂNG OVERRIDE (Luôn học trong 5 phút) ---
+    private fun startOverrideMode() {
+        systemTaskHandler.removeCallbacksAndMessages(null)
+
+        // Câu lệnh bắt đầu: Thể hiện sự nghiêm túc
+        val report = "<speak>" +
+                "Manual override engaged. <break time='400ms'/>" +
+                "<prosody rate='0.9' pitch='-10%'> <emphasis level='moderate'>accelerate</emphasis> execution to <emphasis level='moderate'>maximum</emphasis>,</prosody> " +
+                "<break time='200ms'/>Sir." +
+                "</speak>"
+
+        speak(report)
+
+        // Hẹn giờ 5 phút (300,000 ms)
+        systemTaskHandler.postDelayed({
+            Log.d("Assistant", "Hết 5 phút Override!")
+
+            // Thông báo sau 5 phút
+            speak("Momentum detected. Shall we maintain this flow, Sir?")
+//            speak("The boredom barrier has been breached. Resistance levels have stabilized.") {
+//                // đợi 1 giây sau khi nói xong câu trên
+//                handler.postDelayed({
+//                    speak("Momentum detected. Shall we maintain this flow, Sir?")
+//                }, 800)
+//            }
+        }, 300000)
+    }
+
+    // --- 5. TÍNH NĂNG RELAX (HẸN GIỜ 10 PHÚT) ---
+    private fun startRelaxTimer() {
+        systemTaskHandler.removeCallbacksAndMessages(null)
+        speak("Relaxation protocol initiated... Enjoy your downtime, Sir.")
+
+        // Hẹn giờ 10 phút (600,000 ms)
+        systemTaskHandler.postDelayed({
+            Log.d("Assistant", "Hết 10 phút Relax!")
+
+            val report = "<speak>" + "Synaptic noise eliminated." +
+                    "<break time='700ms'/>Your cognitive engine is now ready, Sir." + "</speak>"
+            speak(report)
+
+        }, 600000)
+    }
+
+    // --- 6. ĐỌC GIỜ KIỂU "SANG CHẢNH" ---
+    private fun readCurrentTimePro() {
+        val time = SimpleDateFormat("h:mm a", Locale.US).format(Date())
+        val day = SimpleDateFormat("EEEE", Locale.US).format(Date())
+        speak("Current time is $time, on $day, Sir.")
+    }
+
+    private fun openGoogleAssistant() {
+        try {
+            val intent = Intent(Intent.ACTION_VOICE_COMMAND)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+        } catch (e: Exception) {}
+    }
+
+    private fun performLock() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+        else performGlobalAction(GLOBAL_ACTION_BACK)
+    }
+
+    // --- QUẢN LÝ NOTIFICATION ---
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(CHANNEL_ID, "Jarvis", NotificationManager.IMPORTANCE_LOW)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }
+    }
+
+    private fun buildNotification(): Notification {
+        val intent = Intent("ACTION_TOGGLE_JARVIS").apply {
+            // Thêm dòng này để chỉ đích danh app mình nhận, tăng tính bảo mật
+            setPackage(packageName)
+        }
+
+        val toggleIntent = PendingIntent.getBroadcast(
+            this,
+            0,
+            intent,
+            // FLAG_IMMUTABLE là bắt buộc trên Android hiện đại
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val statusText = if (isPaused) "Jarvis is sleeping" else "Jarvis is listening..."
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Jarvis Assistant")
+            .setContentText(statusText)
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .addAction(android.R.drawable.ic_media_pause, if (isPaused) "WAKE UP" else "SLEEP", toggleIntent)
+            .setOngoing(true).build()
+    }
+
+    private fun updateNotification() {
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
+    }
+
+    private fun toggleFrontLight(status: Boolean) {
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+
+        if (status) {
+            if (frontLightView != null) return // Đã bật rồi thì thôi
+
+            // Thay Color.WHITE bằng màu Ice Blue hiện đại
+            frontLightView = FrameLayout(this).apply {
+                setBackgroundColor(Color.parseColor("#F0F8FF"))
+                alpha = 0f // Bắt đầu từ trong suốt
+                animate().alpha(1f).setDuration(2000).start() // Hiện dần lên trong 2s
+            }
+
+            // 2. Thiết lập LayoutParams để đè toàn màn hình và đẩy độ sáng
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_FULLSCREEN or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or // Giữ màn hình luôn sáng
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or   // <--- QUAN TRỌNG: Tự bật màn hình
+                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED, // <--- QUAN TRỌNG: Hiện đè lockscreen
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                // Đẩy độ sáng màn hình lên mức cao nhất (1.0f)
+                screenBrightness = 1.0f
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
+            }
+
+            try {
+                wm.addView(frontLightView, params)
+                isFlashOn = true
+                Log.d("JARVIS_DEBUG", "Front Light Activated at Max Brightness")
+
+                // 3. Logic Timeout 60s
+                flashHandler.removeCallbacksAndMessages(null)
+                flashHandler.postDelayed({
+                    if (isFlashOn) {
+                        JarvisVoice.speak("Safety timeout reached. Disengaging lighting systems.") {
+                            toggleFrontLight(false)
+                        }
+                    }
+                }, 60000L)
+            } catch (e: Exception) {
+                Log.e("JARVIS_DEBUG", "Lỗi bật đèn trước: ${e.message}")
+            }
+
+        } else {
+            // TẮT ĐÈN: Giảm độ sáng từ từ rồi mới gỡ View
+            frontLightView?.let { view ->
+                view.animate()
+                    .alpha(0f) // Giảm độ trong suốt về 0
+                    .setDuration(2000) // Thời gian giảm
+                    .withEndAction {
+                        performLock() // khoá màn hình (tắt đèn ngay lập tức)
+                        // Sau khi chạy xong hiệu ứng thì mới xóa View
+                        try {
+                            if (view.isAttachedToWindow) {
+                                wm.removeView(view)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("JARVIS_DEBUG", "Lỗi khi gỡ View: ${e.message}")
+                        }
+                        frontLightView = null
+                    }
+                    .start()
+            }
+
+            isFlashOn = false
+            Log.d("JARVIS_DEBUG", "Front Light Deactivating (Fading out...)")
+            flashHandler.removeCallbacksAndMessages(null)
+        }
+    }
+
+    // chào lần cuối trước khi bị android giết
+    override fun onUnbind(intent: Intent?): Boolean {
+        val goodbyeReport = "<speak>" +
+                "<prosody pitch='-10%' rate='0.95'><emphasis level='strong'>Jarvis</emphasis> offline.</prosody>" +
+                "<break time='500ms'/>" +
+                "<prosody pitch='-20%' rate='1.1'><emphasis level='strong'>Good</emphasis> bye, master.</prosody>" +
+                "</speak>"
+
+        speak(goodbyeReport) {
+            JarvisVoice.shutdown() // QUAN TRỌNG: Giết sạch "bóng ma" TTS
+        }
+        return false // Rất quan trọng: Báo cho Android không dùng lại instance này
+    }
+
+    override fun onDestroy() {
+        isRunning = false
+        unregisterReceiver(notificationReceiver)
+        wakeLock?.release()
+        audioRecord?.stop(); audioRecord?.release()
+        porcupine?.delete(); rhino?.delete()
+        super.onDestroy()
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onInterrupt() {}
+}
+</file>
+
+</files>
