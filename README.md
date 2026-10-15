@@ -148,5 +148,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👨‍💻 Author
 
 **Tien Dat**
-* Portfolio / Resume Contact: [Your Email / LinkedIn Link]
+* Portfolio / Resume Contact: phantiendat23022006@gmail.com / [LinkedIn](https://www.linkedin.com/in/phan-tiến-đạt-269a4436a)
 * GitHub: [@tiendat2k6](https://github.com/tiendat2k6)
